@@ -416,18 +416,124 @@ Begin your research now."""
         }
 
 
-# Node 4: Generate Report (placeholder - will be implemented in later task)
+# Node 4: Generate Report
 def generate_report(state: ResearchState) -> ResearchState:
     """
-    Generate comprehensive final report
-    This is a placeholder implementation - will be fully implemented in a later task
+    Generate comprehensive final report from research findings
     """
-    return {
-        "messages": [AIMessage("Report generation - to be implemented")],
-        "research_brief": state.get("research_brief", ""),
-        "research_complete": state.get("research_complete", False),
-        "final_report": "Final report will be generated here"
-    }
+    if not llm:
+        return {
+            "messages": [AIMessage("Error: LLM not initialized. Please check ANTHROPIC_API_KEY.")],
+            "research_brief": state.get("research_brief", ""),
+            "research_complete": state.get("research_complete", False),
+            "final_report": ""
+        }
+    
+    research_brief = state.get("research_brief", "")
+    research_findings = state.get("final_report", "")  # Research findings from react_research node
+    messages = state.get("messages", [])
+    
+    if not research_brief:
+        return {
+            "messages": messages + [AIMessage("Error: No research brief available for report generation.")],
+            "research_brief": research_brief,
+            "research_complete": state.get("research_complete", False),
+            "final_report": ""
+        }
+    
+    if not research_findings:
+        return {
+            "messages": messages + [AIMessage("Error: No research findings available for report generation.")],
+            "research_brief": research_brief,
+            "research_complete": state.get("research_complete", False),
+            "final_report": ""
+        }
+    
+    try:
+        # Create a comprehensive report generation prompt
+        report_prompt = f"""You are a professional research report writer. Based on the research brief and findings provided, create a comprehensive, well-structured research report.
+
+RESEARCH BRIEF:
+{research_brief}
+
+RESEARCH FINDINGS:
+{research_findings}
+
+Please generate a detailed research report with the following structure:
+
+# [Report Title Based on Research Topic]
+
+## Executive Summary
+- Brief overview of the research topic and key findings
+- Main conclusions and insights
+
+## Introduction
+- Background and context
+- Research objectives and scope
+- Methodology overview
+
+## Key Findings
+- Organize findings into logical sections/themes
+- Present information clearly with supporting details
+- Include relevant statistics, facts, and expert opinions
+
+## Analysis and Insights
+- Synthesize the research findings
+- Identify patterns, trends, and relationships
+- Discuss implications and significance
+
+## Conclusions
+- Summarize main takeaways
+- Address research objectives
+- Highlight most important insights
+
+## Recommendations (if applicable)
+- Actionable recommendations based on findings
+- Future research directions
+- Practical applications
+
+## Sources and References
+- List key sources referenced in the research
+- Include URLs where available
+- Acknowledge search methodology
+
+Guidelines:
+- Use clear, professional language appropriate for the target audience
+- Ensure logical flow and coherent structure
+- Include specific details and examples from the research
+- Maintain objectivity while providing insightful analysis
+- Format using markdown for readability
+- Aim for comprehensive coverage while remaining focused
+
+Generate the complete research report now."""
+
+        # Generate the report using the LLM
+        report_message = HumanMessage(report_prompt)
+        response = llm.invoke([report_message])
+        
+        # Extract the generated report
+        if hasattr(response, 'content'):
+            final_report = response.content
+        else:
+            final_report = str(response)
+        
+        # Add completion message
+        completion_message = AIMessage(f"Research report generated successfully. The comprehensive report covers all aspects of the research brief and synthesizes the gathered information into a well-structured document.")
+        
+        return {
+            "messages": messages + [completion_message],
+            "research_brief": research_brief,
+            "research_complete": True,
+            "final_report": final_report
+        }
+        
+    except Exception as e:
+        return {
+            "messages": messages + [AIMessage(f"Error generating report: {str(e)}")],
+            "research_brief": research_brief,
+            "research_complete": state.get("research_complete", False),
+            "final_report": ""
+        }
 
 
 # Create the StateGraph
@@ -479,6 +585,7 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
 
 
 
