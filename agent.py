@@ -80,7 +80,7 @@ Please provide any additional context that would help me research this effective
 
 **Context and Requirements:** {research_context}
 
-I'll create a research brief and proceed with gathering information. 
+I'll create a research brief and proceed with gathering information.
 
 Would you like to:
 1. Proceed with the research as described (press Enter or type '1')
@@ -351,6 +351,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
 
     main()
+
 
 
 
