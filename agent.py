@@ -25,10 +25,10 @@ from langgraph.types import interrupt
 class ResearchState(TypedDict):
     """State for the research agent workflow"""
     messages: Annotated[List[BaseMessage], add_messages]
+    research_topic: str
+    research_context: str
     research_brief: str
-    research_complete: bool
     final_report: str
-    interaction_stage: str
 
 
 def user_interaction_node(state: ResearchState) -> dict:
@@ -415,6 +415,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
 
 
 
