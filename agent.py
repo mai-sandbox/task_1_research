@@ -117,17 +117,50 @@ If you're satisfied with the scope, I'll proceed with the research.
 Type 'proceed' if you're ready for me to start the research, or provide any additional requirements.
 """)
             
-            # Get final confirmation
-            final_response = interrupt({
-                "question": "Final confirmation before research",
-                "clarification": clarification
-            })
+            try:
+                # Get final confirmation
+                final_response = interrupt({
+                    "question": "Final confirmation before research",
+                    "clarification": clarification
+                })
+            except Exception as e:
+                # Handle interrupt errors
+                error_msg = AIMessage(content=f"An error occurred during final confirmation: {str(e)}. Please restart the research process.")
+                return {
+                    "messages": [follow_up_response, error_msg],
+                    "research_brief": ""
+                }
             
             if final_response and final_response.get("data"):
-                user_input = final_response["data"].lower()
+                user_input = str(final_response["data"]).strip()
+                
+                # Validate final response
+                if not user_input:
+                    validation_msg = AIMessage(content="No response received. Please provide your confirmation or additional requirements.")
+                    return {
+                        "messages": [follow_up_response, validation_msg],
+                        "research_brief": ""
+                    }
+                
+                # Check for cancellation
+                if any(cancel_word in user_input.lower() for cancel_word in ["cancel", "stop", "quit", "exit", "abort"]):
+                    cancel_msg = AIMessage(content="Research process cancelled. Feel free to start a new research request whenever you're ready.")
+                    return {
+                        "messages": [follow_up_response, HumanMessage(content=user_input), cancel_msg],
+                        "research_brief": ""
+                    }
                 
                 # Check if user wants to proceed
-                if "proceed" in user_input or "yes" in user_input or "start" in user_input or "go" in user_input:
+                proceed_keywords = ["proceed", "yes", "start", "go", "ready", "confirm", "ok", "okay", "sure", "begin"]
+                if any(keyword in user_input.lower() for keyword in proceed_keywords):
+                    # Validate we have enough information
+                    if len(clarification) < 10:
+                        need_more_msg = AIMessage(content="The clarification provided seems insufficient. Please provide more details about your research needs.")
+                        return {
+                            "messages": [follow_up_response, HumanMessage(content=user_input), need_more_msg],
+                            "research_brief": ""
+                        }
+                    
                     # Create comprehensive research brief
                     research_brief = f"""
 RESEARCH BRIEF:
@@ -148,12 +181,28 @@ Research Objectives:
                     confirmation_message = AIMessage(content="Great! I've prepared the research brief. Now conducting detailed research...")
                     
                     return {
-                        "messages": [follow_up_response, HumanMessage(content=final_response["data"]), confirmation_message],
+                        "messages": [follow_up_response, HumanMessage(content=user_input), confirmation_message],
                         "research_brief": research_brief
                     }
                 else:
-                    # User provided more requirements
-                    additional_requirements = final_response["data"]
+                    # User provided more requirements - validate them
+                    additional_requirements = user_input
+                    
+                    if len(additional_requirements) < 5:
+                        need_details_msg = AIMessage(content="Your additional requirements seem too brief. Please provide more specific details or type 'proceed' to start with the current scope.")
+                        return {
+                            "messages": [follow_up_response, HumanMessage(content=user_input), need_details_msg],
+                            "research_brief": ""
+                        }
+                    
+                    # Check for excessively long input (potential spam or error)
+                    if len(additional_requirements) > 5000:
+                        too_long_msg = AIMessage(content="Your input is too long. Please provide a concise summary of your additional requirements (under 5000 characters).")
+                        return {
+                            "messages": [follow_up_response, HumanMessage(content=user_input[:100] + "..."), too_long_msg],
+                            "research_brief": ""
+                        }
+                    
                     research_brief = f"""
 RESEARCH BRIEF:
 ===============
@@ -176,14 +225,23 @@ Research Objectives:
                     confirmation_message = AIMessage(content="Perfect! I've incorporated all your requirements. Starting the research now...")
                     
                     return {
-                        "messages": [follow_up_response, HumanMessage(content=final_response["data"]), confirmation_message],
+                        "messages": [follow_up_response, HumanMessage(content=user_input), confirmation_message],
                         "research_brief": research_brief
                     }
-        
-        return {
-            "messages": [ai_response],
-            "research_brief": ""
-        }
+            else:
+                # No response received from interrupt
+                no_response_msg = AIMessage(content="No response received. Please restart the research process and provide your input when prompted.")
+                return {
+                    "messages": [follow_up_response, no_response_msg],
+                    "research_brief": ""
+                }
+        else:
+            # No initial clarification received
+            no_clarification_msg = AIMessage(content="No clarification received. Please restart the research process and provide details about what you'd like me to research.")
+            return {
+                "messages": [ai_response, no_clarification_msg],
+                "research_brief": ""
+            }
     
     # Default return if brief already exists
     return {"research_brief": research_brief}
@@ -360,4 +418,5 @@ app = graph.compile(checkpointer=memory)
 
 # Export the compiled graph as 'app' for deployment
 __all__ = ["app"]
+
 
