@@ -220,15 +220,56 @@ Output Format: Comprehensive report"""
 # Node 2: Should Proceed Decision
 def should_proceed_decision(state: ResearchState) -> Literal["clarify_scope", "react_research"]:
     """
-    Decide whether to continue clarifying or proceed with research
+    Analyze the current research_brief to determine if enough information has been gathered
+    to proceed with research. Returns 'clarify_scope' to continue gathering requirements 
+    or 'react_research' to begin the research phase.
     """
     research_brief = state.get("research_brief", "")
-    last_message = state["messages"][-1] if state["messages"] else None
+    messages = state.get("messages", [])
+    last_message = messages[-1] if messages else None
     
-    # Check if we have a research brief and the last message indicates completion
-    if (research_brief and 
-        last_message and 
-        "RESEARCH_BRIEF_COMPLETE" in last_message.content):
+    # First check: Do we have a research brief at all?
+    if not research_brief or len(research_brief.strip()) < 20:
+        return "clarify_scope"
+    
+    # Second check: Does the last message indicate completion?
+    completion_indicated = (last_message and 
+                          "RESEARCH_BRIEF_COMPLETE" in last_message.content)
+    
+    if completion_indicated:
+        return "react_research"
+    
+    # Third check: Analyze the content of the research brief for completeness
+    brief_lower = research_brief.lower()
+    
+    # Check for essential components
+    has_topic = any(keyword in brief_lower for keyword in [
+        "research topic:", "topic:", "subject:", "focus:"
+    ])
+    
+    has_scope = any(keyword in brief_lower for keyword in [
+        "scope:", "research scope:", "boundaries:", "coverage:", "extent:"
+    ])
+    
+    has_audience = any(keyword in brief_lower for keyword in [
+        "audience:", "target audience:", "readers:", "intended for:"
+    ])
+    
+    has_depth = any(keyword in brief_lower for keyword in [
+        "depth:", "research depth:", "level:", "detail:", "comprehensive:", "overview:"
+    ])
+    
+    # Count how many essential components we have
+    essential_components = sum([has_topic, has_scope, has_audience, has_depth])
+    
+    # Fourth check: Length and detail analysis
+    brief_length = len(research_brief.strip())
+    has_sufficient_detail = brief_length > 100  # At least 100 characters of detail
+    
+    # Decision logic: Proceed if we have sufficient components and detail
+    if essential_components >= 3 and has_sufficient_detail:
+        return "react_research"
+    elif essential_components >= 2 and has_sufficient_detail and brief_length > 200:
         return "react_research"
     else:
         return "clarify_scope"
@@ -352,6 +393,7 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
 
 
 
