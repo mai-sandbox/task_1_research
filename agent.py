@@ -160,7 +160,7 @@ def execute_research(state: ResearchState) -> dict:
             llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
     
     # Initialize Tavily search tool
-    tavily_tool = TavilySearchResults(max_results=5)
+    tavily_tool = TavilySearch(max_results=5)
     tools = [tavily_tool]
     
     # Create the research prompt
@@ -358,6 +358,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
 
 
 
