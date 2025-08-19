@@ -146,10 +146,10 @@ def execute_research(state: ResearchState) -> dict:
     # Initialize the LLM (prefer OpenAI, fallback to Anthropic)
     try:
         llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
-    except:
+    except Exception as e:
         try:
             llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.7)
-        except:
+        except Exception as e:
             # Fallback to a basic OpenAI model
             llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
 
@@ -347,3 +347,4 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
 
     main()
+
