@@ -187,7 +187,10 @@ After gathering sufficient information, create a detailed research report that:
     react_agent = create_react_agent(model=llm, tools=tools, prompt=research_prompt)
 
     # Execute the research
-    research_request = "Please conduct thorough research based on the brief provided and create a comprehensive, well-structured report."
+    research_request = (
+        "Please conduct thorough research based on the brief provided "
+        "and create a comprehensive, well-structured report."
+    )
 
     try:
         # Run the ReAct agent
@@ -351,6 +354,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
 
     main()
+
 
 
 
