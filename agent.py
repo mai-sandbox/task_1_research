@@ -302,14 +302,14 @@ You may need to retry the research or adjust your query.
         }
 
 
-def should_continue_research(state: ResearchState) -> Literal["research", "end"]:
+def should_continue_research(state: ResearchState) -> Literal["research", "interaction", "output"]:
     """
-    Conditional edge to determine if research should continue or end.
+    Conditional edge to determine next step after interaction.
     """
     if state.get("research_complete", False):
-        return "end"
+        return "output"
     
-    if state.get("research_brief", ""):
+    if state.get("research_brief", "") and state.get("interaction_count", 0) >= 4:
         return "research"
     
     return "interaction"
@@ -418,5 +418,6 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
 
 
