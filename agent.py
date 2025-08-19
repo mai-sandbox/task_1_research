@@ -119,49 +119,49 @@ def clarify_scope(state: ResearchState) -> ResearchState:
             "final_report": ""
         }
     
-    # Get the last message to understand what the user wants
-    last_message = state["messages"][-1] if state["messages"] else None
+    # Get the conversation history
+    messages = state.get("messages", [])
     current_brief = state.get("research_brief", "")
     
-    # Create a prompt to clarify research scope
-    clarification_prompt = f"""
-You are a research assistant helping to clarify the scope of a research project.
+    # For this basic implementation, we'll create a simple research brief
+    # from the user's initial request to avoid infinite loops
+    if messages and not current_brief:
+        user_request = messages[0].content if messages[0] else "General research request"
+        
+        # Create a basic research brief
+        research_brief = f"""
+Research Topic: {user_request}
 
-Current research brief: {current_brief if current_brief else "None yet"}
+Research Scope:
+- Conduct comprehensive research on the specified topic
+- Gather current information and developments
+- Provide detailed analysis and insights
+- Include relevant sources and citations
 
-Based on the user's request, ask clarifying questions to understand:
-1. The specific research topic and focus area
-2. The depth and scope of research needed
-3. The target audience for the research
-4. Any specific aspects or angles to explore
-5. Timeline or urgency considerations
-
-If you have enough information to create a comprehensive research brief, 
-create a detailed brief and end your response with "RESEARCH_BRIEF_COMPLETE".
-
-User's latest message: {last_message.content if last_message else "No message yet"}
+Target Audience: General audience seeking comprehensive information
+Research Depth: Comprehensive overview with key details and recent developments
 """
-    
-    # Get clarification from LLM
-    response = llm.invoke([HumanMessage(clarification_prompt)])
-    
-    # Check if the brief is complete
-    if "RESEARCH_BRIEF_COMPLETE" in response.content:
-        # Extract the research brief (everything before the completion marker)
-        brief_content = response.content.split("RESEARCH_BRIEF_COMPLETE")[0].strip()
+        
+        response_content = f"""I understand you want to research: {user_request}
+
+I'll help you conduct comprehensive research on this topic. Let me gather detailed information and provide you with a thorough analysis.
+
+RESEARCH_BRIEF_COMPLETE"""
+        
         return {
-            "messages": [response],
-            "research_brief": brief_content,
+            "messages": [AIMessage(response_content)],
+            "research_brief": research_brief.strip(),
             "research_complete": False,
             "final_report": ""
         }
-    else:
-        return {
-            "messages": [response],
-            "research_brief": current_brief,
-            "research_complete": False,
-            "final_report": ""
-        }
+    
+    # If we already have a brief, proceed
+    return {
+        "messages": [AIMessage("Research scope clarified. Proceeding with research.")],
+        "research_brief": current_brief,
+        "research_complete": False,
+        "final_report": ""
+    }
 
 
 # Node 2: Should Proceed Decision
@@ -256,3 +256,4 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
