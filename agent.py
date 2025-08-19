@@ -31,45 +31,33 @@ class ResearchState(TypedDict):
     final_report: str
 
 
-def user_interaction_node(state: ResearchState) -> dict:
+def clarify_research_scope(state: ResearchState) -> dict:
     """
     Phase 1: Interactive node for clarifying research scope with the user.
     Uses interrupt() to pause execution and gather user input.
     """
-    messages = state.get("messages", [])
+    research_topic = state.get("research_topic", "")
+    research_context = state.get("research_context", "")
     research_brief = state.get("research_brief", "")
-    interaction_count = state.get("interaction_count", 0)
     
     # If we already have a research brief, skip interaction
     if research_brief:
         return {}
     
-    # Track interaction stages
-    if interaction_count == 0:
-        # Initial greeting and get topic
+    # Stage 1: Get research topic
+    if not research_topic:
         greeting = """Welcome to the Deep Research Agent! 
 
 I'll help you conduct thorough research on any topic. First, let me understand what you'd like to research.
 
 Please describe your research topic and any specific aspects you'd like me to focus on:"""
         
-        user_input = interrupt(greeting)
-        
-        return {
-            "messages": [HumanMessage(content=f"Research topic: {user_input}")],
-            "interaction_count": 1
-        }
+        user_topic = interrupt(greeting)
+        return {"research_topic": user_topic}
     
-    elif interaction_count == 1:
-        # Get clarification
-        # Extract the topic from previous message
-        topic = ""
-        for msg in messages:
-            if isinstance(msg, HumanMessage) and "Research topic:" in msg.content:
-                topic = msg.content.replace("Research topic: ", "")
-                break
-        
-        clarification_prompt = f"""Thank you for sharing your research interest: "{topic}"
+    # Stage 2: Get clarification and context
+    if not research_context:
+        clarification_prompt = f"""Thank you for sharing your research interest: "{research_topic}"
 
 To ensure I conduct the most relevant research, let me ask a few clarifying questions:
 
@@ -79,105 +67,58 @@ To ensure I conduct the most relevant research, let me ask a few clarifying ques
 
 Please provide any additional context that would help me research this effectively:"""
         
-        clarification = interrupt(clarification_prompt)
-        
-        return {
-            "messages": [HumanMessage(content=f"Clarification: {clarification}")],
-            "interaction_count": 2
-        }
+        user_context = interrupt(clarification_prompt)
+        return {"research_context": user_context}
     
-    elif interaction_count == 2:
-        # Confirm and create research brief
-        topic = ""
-        clarification = ""
-        
-        for msg in messages:
-            if isinstance(msg, HumanMessage):
-                if "Research topic:" in msg.content:
-                    topic = msg.content.replace("Research topic: ", "")
-                elif "Clarification:" in msg.content:
-                    clarification = msg.content.replace("Clarification: ", "")
-        
-        confirmation_prompt = f"""Based on our discussion, here's my understanding of your research needs:
+    # Stage 3: Confirm and create research brief
+    confirmation_prompt = f"""Based on our discussion, here's my understanding of your research needs:
 
-**Original Topic:** {topic}
-**Additional Context:** {clarification}
+**Topic:** {research_topic}
 
-I'll now create a research brief and proceed with gathering information. 
+**Context and Requirements:** {research_context}
+
+I'll create a research brief and proceed with gathering information. 
 
 Would you like to:
-1. Proceed with the research as described
-2. Add more specific requirements
-3. Modify the scope
+1. Proceed with the research as described (press Enter or type '1')
+2. Add more specific requirements (type '2')
+3. Start over with a different topic (type '3')
 
-Please enter 1, 2, or 3 (or just press Enter to proceed):"""
-        
-        confirmation = interrupt(confirmation_prompt)
-        
-        if confirmation and confirmation.strip() in ["2", "3"]:
-            return {
-                "interaction_count": 3
-            }
-        
-        # Create the research brief
-        research_brief = f"""RESEARCH BRIEF:
-===============
-Topic: {topic}
-
-Context and Requirements:
-{clarification}
-
-Research Objectives:
-- Gather comprehensive and accurate information
-- Provide multiple perspectives where relevant
-- Include recent and authoritative sources
-- Structure findings in a clear, logical manner"""
-        
-        return {
-            "research_brief": research_brief,
-            "interaction_count": 4
-        }
+Your choice:"""
     
-    elif interaction_count == 3:
-        # Get additional requirements
-        additional_prompt = "Please provide your additional requirements or modifications:"
+    user_choice = interrupt(confirmation_prompt)
+    
+    if user_choice and user_choice.strip() == "2":
+        additional_prompt = "Please provide your additional requirements:"
         additional_input = interrupt(additional_prompt)
-        
-        # Update the research brief with additional requirements
-        topic = ""
-        clarification = ""
-        
-        for msg in messages:
-            if isinstance(msg, HumanMessage):
-                if "Research topic:" in msg.content:
-                    topic = msg.content.replace("Research topic: ", "")
-                elif "Clarification:" in msg.content:
-                    clarification = msg.content.replace("Clarification: ", "")
-        
-        clarification = f"{clarification}\n\nAdditional requirements: {additional_input}"
-        
-        research_brief = f"""RESEARCH BRIEF:
+        research_context = f"{research_context}\n\nAdditional requirements: {additional_input}"
+        return {"research_context": research_context}
+    
+    elif user_choice and user_choice.strip() == "3":
+        # Reset to start over
+        return {
+            "research_topic": "",
+            "research_context": "",
+            "research_brief": ""
+        }
+    
+    # Create the research brief
+    research_brief = f"""RESEARCH BRIEF:
 ===============
-Topic: {topic}
+Topic: {research_topic}
 
 Context and Requirements:
-{clarification}
+{research_context}
 
 Research Objectives:
 - Gather comprehensive and accurate information
 - Provide multiple perspectives where relevant
 - Include recent and authoritative sources
-- Structure findings in a clear, logical manner"""
-        
-        return {
-            "messages": [HumanMessage(content=f"Additional: {additional_input}")],
-            "research_brief": research_brief,
-            "interaction_count": 4
-        }
+- Structure findings in a clear, logical manner
+- Synthesize information into a detailed report"""
     
-    elif interaction_count == 4:
-        # Final confirmation before research
-        final_confirmation = f"""Research Brief Created!
+    # Final confirmation
+    final_prompt = f"""{research_brief}
 
 I'm ready to begin the research. This will involve:
 1. Searching for relevant information using web search
@@ -185,20 +126,16 @@ I'm ready to begin the research. This will involve:
 3. Creating a detailed report
 
 Press Enter to start the research, or type 'cancel' to stop:"""
-        
-        start_confirmation = interrupt(final_confirmation)
-        
-        if start_confirmation and start_confirmation.strip().lower() == 'cancel':
-            return {
-                "research_complete": True,
-                "final_report": "Research cancelled by user."
-            }
-        
+    
+    final_confirmation = interrupt(final_prompt)
+    
+    if final_confirmation and final_confirmation.strip().lower() == 'cancel':
         return {
-            "interaction_count": 5
+            "research_brief": "",
+            "final_report": "Research cancelled by user."
         }
     
-    return {}
+    return {"research_brief": research_brief}
 
 
 def research_execution_node(state: ResearchState) -> dict:
@@ -415,6 +352,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
 
 
 
