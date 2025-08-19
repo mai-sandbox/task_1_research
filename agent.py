@@ -234,15 +234,42 @@ def should_proceed_decision(state: ResearchState) -> Literal["clarify_scope", "r
         return "clarify_scope"
 
 
-# Node 2: Should Proceed (placeholder node - will be implemented in next task)
+# Node 2: Should Proceed
 def should_proceed(state: ResearchState) -> ResearchState:
     """
-    Decision node that determines next step in workflow
-    This is a placeholder implementation - will be fully implemented in the next task
+    Decision node that analyzes the research brief and determines next step in workflow
     """
+    research_brief = state.get("research_brief", "")
+    messages = state.get("messages", [])
+    
+    # Analyze the research brief to determine if we have sufficient information
+    if research_brief and len(research_brief.strip()) > 50:  # Basic length check
+        # Check if the brief contains key components
+        brief_lower = research_brief.lower()
+        has_topic = any(keyword in brief_lower for keyword in ["research topic:", "topic:", "subject:"])
+        has_scope = any(keyword in brief_lower for keyword in ["scope:", "research scope:", "boundaries:"])
+        has_audience = any(keyword in brief_lower for keyword in ["audience:", "target audience:", "readers:"])
+        
+        # Check if the last message indicates completion
+        last_message = messages[-1] if messages else None
+        completion_indicated = (last_message and 
+                              "RESEARCH_BRIEF_COMPLETE" in last_message.content)
+        
+        # Determine if we have enough information to proceed
+        sufficient_info = (has_topic and (has_scope or has_audience)) or completion_indicated
+        
+        if sufficient_info:
+            return {
+                "messages": [AIMessage("Research brief is complete. Proceeding to research phase.")],
+                "research_brief": research_brief,
+                "research_complete": False,
+                "final_report": ""
+            }
+    
+    # If we don't have sufficient information, continue clarifying
     return {
-        "messages": [AIMessage("Decision phase - to be implemented")],
-        "research_brief": state.get("research_brief", ""),
+        "messages": [AIMessage("Research brief needs more detail. Continuing clarification.")],
+        "research_brief": research_brief,
         "research_complete": False,
         "final_report": ""
     }
@@ -325,6 +352,7 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
 
 
 
