@@ -7,7 +7,7 @@ This agent implements a two-phase workflow:
 """
 
 import os
-from typing import Annotated, TypedDict, Literal
+from typing import Annotated, Literal
 from typing_extensions import TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -18,7 +18,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.types import interrupt, Command
+from langgraph.types import interrupt
 
 
 # State definition
@@ -28,6 +28,7 @@ class ResearchState(TypedDict):
     research_brief: str
     research_complete: bool
     final_report: str
+    interaction_count: int
 
 
 def user_interaction_node(state: ResearchState) -> dict:
@@ -355,3 +356,4 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
