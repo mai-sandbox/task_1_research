@@ -210,7 +210,10 @@ After gathering sufficient information, create a detailed research report that:
 
         if final_report == "# Research Report\n\n":
             # Fallback if no proper response found
-            final_report += "Research completed but no detailed findings were generated. Please try again with a more specific query."
+            final_report += (
+                "Research completed but no detailed findings were generated. "
+                "Please try again with a more specific query."
+            )
 
         # Add the research brief to the report for context
         final_report = f"""# Deep Research Report
@@ -354,6 +357,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
 
     main()
+
 
 
 
