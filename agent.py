@@ -165,7 +165,7 @@ RESEARCH_BRIEF_COMPLETE"""
 
 
 # Node 2: Should Proceed Decision
-def should_proceed(state: ResearchState) -> Literal["clarify_scope", "react_research"]:
+def should_proceed_decision(state: ResearchState) -> Literal["clarify_scope", "react_research"]:
     """
     Decide whether to continue clarifying or proceed with research
     """
@@ -179,6 +179,20 @@ def should_proceed(state: ResearchState) -> Literal["clarify_scope", "react_rese
         return "react_research"
     else:
         return "clarify_scope"
+
+
+# Node 2: Should Proceed (placeholder node - will be implemented in next task)
+def should_proceed(state: ResearchState) -> ResearchState:
+    """
+    Decision node that determines next step in workflow
+    This is a placeholder implementation - will be fully implemented in the next task
+    """
+    return {
+        "messages": [AIMessage("Decision phase - to be implemented")],
+        "research_brief": state.get("research_brief", ""),
+        "research_complete": False,
+        "final_report": ""
+    }
 
 
 # Node 3: ReAct Research (placeholder - will be implemented in next task)
@@ -258,5 +272,6 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
 
 
