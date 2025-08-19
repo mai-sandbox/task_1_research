@@ -275,27 +275,25 @@ def build_research_graph():
     graph_builder = StateGraph(ResearchState)
     
     # Add nodes
-    graph_builder.add_node("interaction", user_interaction_node)
-    graph_builder.add_node("research", research_execution_node)
-    graph_builder.add_node("output", format_output_node)
+    graph_builder.add_node("clarify", clarify_research_scope)
+    graph_builder.add_node("research", execute_research)
     
     # Add edges
-    graph_builder.add_edge(START, "interaction")
+    graph_builder.add_edge(START, "clarify")
     
-    # Conditional routing after interaction
+    # Conditional routing after clarification
     graph_builder.add_conditional_edges(
-        "interaction",
-        should_continue_research,
+        "clarify",
+        route_after_interaction,
         {
+            "clarify": "clarify",  # Loop back for more interaction
             "research": "research",
-            "end": "output",
-            "interaction": "interaction"  # Loop back for more interaction if needed
+            "end": END
         }
     )
     
-    # After research, go to output
-    graph_builder.add_edge("research", "output")
-    graph_builder.add_edge("output", END)
+    # After research, end
+    graph_builder.add_edge("research", END)
     
     # Compile with checkpointer for interrupt support
     checkpointer = MemorySaver()
@@ -315,13 +313,14 @@ def main():
     """
     print("\n" + "="*80)
     print("DEEP RESEARCH AGENT")
-    print("="*80)
+    print("="*80 + "\n")
     
     # Initialize state
     initial_state = {
-        "messages": [HumanMessage(content="Start research session")],
+        "messages": [],
+        "research_topic": "",
+        "research_context": "",
         "research_brief": "",
-        "research_complete": False,
         "final_report": ""
     }
     
@@ -329,11 +328,16 @@ def main():
     config = {"configurable": {"thread_id": "research_session_001"}}
     
     try:
-        # Start the graph execution
-        for event in app.stream(initial_state, config=config, stream_mode="updates"):
-            # The graph will pause at interrupt points
-            # User input is handled through the interrupt() function
-            pass
+        # Run the graph
+        result = app.invoke(initial_state, config=config)
+        
+        # Print the final report
+        if result.get("final_report"):
+            print("\n" + "="*80)
+            print("RESEARCH COMPLETE")
+            print("="*80)
+            print(result["final_report"])
+            print("="*80 + "\n")
             
     except KeyboardInterrupt:
         print("\n\nResearch session interrupted by user.")
@@ -354,6 +358,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
 
 
 
