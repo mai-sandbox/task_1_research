@@ -49,6 +49,14 @@ def user_interaction_agent(state: ResearchState) -> Dict[str, Any]:
     if len(messages) == 1:  # First user message
         initial_request = messages[0].content if messages else ""
         
+        # Validate initial request
+        if not initial_request or len(initial_request.strip()) < 3:
+            error_response = AIMessage(content="I need a valid research topic to proceed. Please provide a clear research request with at least a few words describing what you'd like me to research.")
+            return {
+                "messages": [error_response],
+                "research_brief": ""
+            }
+        
         # Create initial response asking for clarification
         ai_response = AIMessage(content=f"""
 I understand you'd like me to conduct research on: "{initial_request}"
@@ -63,15 +71,39 @@ To ensure I provide the most relevant and comprehensive research, I'd like to cl
 Please provide any additional context that would help me conduct better research for you.
 """)
         
-        # Interrupt to get user response
-        user_response = interrupt({
-            "question": "Please provide clarification on the research scope",
-            "current_context": initial_request
-        })
+        try:
+            # Interrupt to get user response
+            user_response = interrupt({
+                "question": "Please provide clarification on the research scope",
+                "current_context": initial_request
+            })
+        except Exception as e:
+            # Handle interrupt errors
+            error_msg = AIMessage(content=f"An error occurred during interaction: {str(e)}. Please restart the research process.")
+            return {
+                "messages": [error_msg],
+                "research_brief": ""
+            }
         
         # Process user response and check if we need more clarification
         if user_response and user_response.get("data"):
-            clarification = user_response["data"]
+            clarification = str(user_response["data"]).strip()
+            
+            # Validate clarification input
+            if not clarification or len(clarification) < 5:
+                validation_msg = AIMessage(content="Your clarification seems too brief. Please provide more details about what you'd like me to research.")
+                return {
+                    "messages": [ai_response, validation_msg],
+                    "research_brief": ""
+                }
+            
+            # Check for cancellation keywords
+            if any(cancel_word in clarification.lower() for cancel_word in ["cancel", "stop", "quit", "exit", "abort"]):
+                cancel_msg = AIMessage(content="Research process cancelled. Feel free to start a new research request whenever you're ready.")
+                return {
+                    "messages": [ai_response, HumanMessage(content=clarification), cancel_msg],
+                    "research_brief": ""
+                }
             
             # Ask follow-up if needed
             follow_up_response = AIMessage(content=f"""
@@ -328,3 +360,4 @@ app = graph.compile(checkpointer=memory)
 
 # Export the compiled graph as 'app' for deployment
 __all__ = ["app"]
+
