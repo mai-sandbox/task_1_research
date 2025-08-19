@@ -1,0 +1,40 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "agent": {
+      "path": "./agent.py:app",
+      "description": "Deep Research Agent with User Interaction and ReAct Search",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "openai_api_key": {
+            "type": "string",
+            "description": "OpenAI API key for language model functionality"
+          },
+          "tavily_api_key": {
+            "type": "string",
+            "description": "Tavily API key for web search functionality"
+          }
+        }
+      }
+    }
+  },
+  "env": {
+    "OPENAI_API_KEY": "openai_api_key",
+    "TAVILY_API_KEY": "tavily_api_key"
+  },
+  "dockerfile_lines": [
+    "RUN pip install --no-cache-dir langgraph tavily-python langchain-openai"
+  ],
+  "metadata": {
+    "name": "deep-research-agent",
+    "version": "1.0.0",
+    "description": "A LangGraph agent that conducts deep research through user interaction and web search",
+    "author": "LangGraph Deep Research Agent",
+    "tags": ["research", "agent", "tavily", "react", "user-interaction"],
+    "license": "MIT"
+  },
+  "python_version": "3.11"
+}
