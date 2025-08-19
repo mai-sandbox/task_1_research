@@ -3,5 +3,9 @@
   "graphs": {
     "agent": "./agent.py:app"
   },
-  "env": ".env"
+  "env": ".env",
+  "python_version": "3.9",
+  "pip_config_file": null,
+  "dockerfile_lines": []
 }
+
