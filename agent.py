@@ -109,7 +109,7 @@ def tavily_search_tool(query: str) -> str:
 # Node 1: Clarify Scope
 def clarify_scope(state: ResearchState) -> ResearchState:
     """
-    Engage with user to clarify research requirements
+    Engage with user to clarify research requirements through terminal-based conversation
     """
     if not llm:
         return {
@@ -119,49 +119,102 @@ def clarify_scope(state: ResearchState) -> ResearchState:
             "final_report": ""
         }
     
-    # Get the conversation history
     messages = state.get("messages", [])
     current_brief = state.get("research_brief", "")
     
-    # For this basic implementation, we'll create a simple research brief
-    # from the user's initial request to avoid infinite loops
-    if messages and not current_brief:
-        user_request = messages[0].content if messages[0] else "General research request"
-        
-        # Create a basic research brief
-        research_brief = f"""
-Research Topic: {user_request}
-
-Research Scope:
-- Conduct comprehensive research on the specified topic
-- Gather current information and developments
-- Provide detailed analysis and insights
-- Include relevant sources and citations
-
-Target Audience: General audience seeking comprehensive information
-Research Depth: Comprehensive overview with key details and recent developments
-"""
-        
-        response_content = f"""I understand you want to research: {user_request}
-
-I'll help you conduct comprehensive research on this topic. Let me gather detailed information and provide you with a thorough analysis.
-
-RESEARCH_BRIEF_COMPLETE"""
-        
+    # If we already have a complete research brief, no need to clarify further
+    if current_brief and "RESEARCH_BRIEF_COMPLETE" in str(messages[-1].content if messages else ""):
         return {
-            "messages": [AIMessage(response_content)],
-            "research_brief": research_brief.strip(),
+            "messages": [AIMessage("Research scope has been clarified. Ready to proceed with research.")],
+            "research_brief": current_brief,
             "research_complete": False,
             "final_report": ""
         }
     
-    # If we already have a brief, proceed
-    return {
-        "messages": [AIMessage("Research scope clarified. Proceeding with research.")],
-        "research_brief": current_brief,
-        "research_complete": False,
-        "final_report": ""
-    }
+    # Analyze conversation to determine what information we still need
+    conversation_history = "\n".join([f"{msg.type}: {msg.content}" for msg in messages])
+    
+    # Create a comprehensive prompt for the LLM to act as a research clarification assistant
+    clarification_prompt = f"""You are a research assistant helping to clarify the scope of a research project through terminal-based conversation.
+
+Your goal is to gather comprehensive information about:
+1. The specific research topic and focus area
+2. The depth and scope of research needed (surface-level overview vs deep analysis)
+3. The target audience for the research (academic, business, general public, etc.)
+4. Any specific aspects, angles, or subtopics to explore
+5. Timeline considerations or urgency
+6. Preferred format or structure for the final report
+7. Any specific sources or types of information to prioritize
+
+Current conversation history:
+{conversation_history}
+
+Current research brief: {current_brief if current_brief else "None yet"}
+
+Instructions:
+- If this is the first interaction, introduce yourself and ask initial clarifying questions
+- If the user has provided some information, ask follow-up questions to fill gaps
+- Be conversational and helpful, not robotic
+- Ask 2-3 focused questions at a time, don't overwhelm the user
+- When you have gathered sufficient information to create a comprehensive research brief, create a detailed brief and end your response with "RESEARCH_BRIEF_COMPLETE"
+
+The research brief should include:
+- Research Topic: [Clear, specific topic]
+- Research Scope: [Detailed scope and boundaries]
+- Target Audience: [Who will read this research]
+- Research Depth: [Level of detail required]
+- Key Focus Areas: [Specific aspects to emphasize]
+- Timeline: [Any urgency or deadline considerations]
+- Output Format: [Preferred structure/format]
+
+Respond as the research assistant:"""
+
+    try:
+        # Get response from LLM
+        response = llm.invoke([HumanMessage(clarification_prompt)])
+        
+        # Check if the research brief is complete
+        if "RESEARCH_BRIEF_COMPLETE" in response.content:
+            # Extract the research brief from the response
+            response_parts = response.content.split("RESEARCH_BRIEF_COMPLETE")
+            brief_content = response_parts[0].strip()
+            
+            # Look for the research brief in the response
+            brief_start = brief_content.find("Research Topic:")
+            if brief_start != -1:
+                research_brief = brief_content[brief_start:].strip()
+            else:
+                # If no structured brief found, create one from the conversation
+                research_brief = f"""Research Topic: {messages[0].content if messages else 'Research request'}
+Research Scope: Comprehensive research based on user requirements
+Target Audience: General audience
+Research Depth: Detailed analysis
+Key Focus Areas: As discussed in conversation
+Timeline: Standard research timeline
+Output Format: Comprehensive report"""
+            
+            return {
+                "messages": [response],
+                "research_brief": research_brief,
+                "research_complete": False,
+                "final_report": ""
+            }
+        else:
+            # Continue the conversation
+            return {
+                "messages": [response],
+                "research_brief": current_brief,
+                "research_complete": False,
+                "final_report": ""
+            }
+            
+    except Exception as e:
+        return {
+            "messages": [AIMessage(f"Error in clarification process: {str(e)}. Please try again.")],
+            "research_brief": current_brief,
+            "research_complete": False,
+            "final_report": ""
+        }
 
 
 # Node 2: Should Proceed Decision
@@ -272,6 +325,7 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
 
 
 
