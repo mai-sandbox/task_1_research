@@ -250,29 +250,20 @@ You may need to retry the research or adjust your query.
         }
 
 
-def should_continue_research(state: ResearchState) -> Literal["research", "interaction", "output"]:
+def route_after_interaction(state: ResearchState) -> Literal["clarify", "research", "end"]:
     """
     Conditional edge to determine next step after interaction.
     """
-    if state.get("research_complete", False):
-        return "output"
+    # If we have a final report (including cancellation), end
+    if state.get("final_report", ""):
+        return "end"
     
-    if state.get("research_brief", "") and state.get("interaction_count", 0) >= 4:
+    # If we have a research brief, proceed to research
+    if state.get("research_brief", ""):
         return "research"
     
-    return "interaction"
-
-
-def format_output_node(state: ResearchState) -> dict:
-    """
-    Final node to format and present the research results.
-    """
-    final_report = state.get("final_report", "No report generated.")
-    
-    # Don't print here as it interferes with the interrupt flow
-    # The report will be in the state for the caller to access
-    
-    return {"final_report": final_report}
+    # Otherwise, continue clarifying
+    return "clarify"
 
 
 # Build the graph
@@ -363,6 +354,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
 
 
 
