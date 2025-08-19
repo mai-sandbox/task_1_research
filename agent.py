@@ -316,18 +316,104 @@ def should_proceed(state: ResearchState) -> ResearchState:
     }
 
 
-# Node 3: ReAct Research (placeholder - will be implemented in next task)
+# Node 3: ReAct Research
 def react_research(state: ResearchState) -> ResearchState:
     """
     Conduct research using ReAct agent with Tavily search
-    This is a placeholder implementation - will be fully implemented in the next task
     """
-    return {
-        "messages": [AIMessage("Research phase - to be implemented")],
-        "research_brief": state.get("research_brief", ""),
-        "research_complete": True,
-        "final_report": ""
-    }
+    if not llm or not tavily_client:
+        return {
+            "messages": [AIMessage("Error: LLM or Tavily client not initialized. Please check API keys.")],
+            "research_brief": state.get("research_brief", ""),
+            "research_complete": False,
+            "final_report": ""
+        }
+    
+    research_brief = state.get("research_brief", "")
+    messages = state.get("messages", [])
+    
+    if not research_brief:
+        return {
+            "messages": [AIMessage("Error: No research brief available to guide research.")],
+            "research_brief": research_brief,
+            "research_complete": False,
+            "final_report": ""
+        }
+    
+    try:
+        # Create a ReAct agent with the Tavily search tool
+        from langchain_core.tools import tool
+        
+        @tool
+        def search_web(query: str) -> str:
+            """Search the web for information using Tavily API"""
+            return tavily_search_tool(query)
+        
+        # Create the ReAct agent
+        react_agent = create_react_agent(
+            model=llm,
+            tools=[search_web],
+            prompt=f"""You are a research assistant conducting comprehensive research based on the following research brief:
+
+{research_brief}
+
+Your task is to:
+1. Analyze the research brief to identify key topics and questions to investigate
+2. Conduct multiple targeted searches to gather comprehensive information
+3. Analyze search results to identify gaps in knowledge
+4. Continue searching until you have gathered sufficient information to address all aspects of the research brief
+5. Synthesize your findings into a comprehensive research summary
+
+Guidelines:
+- Use multiple search queries to cover different aspects of the topic
+- Look for recent developments, key facts, expert opinions, and relevant statistics
+- Ensure you cover all areas mentioned in the research brief
+- Be thorough but focused on the research objectives
+- When you have gathered comprehensive information, provide a detailed summary of your findings
+
+Begin your research now."""
+        )
+        
+        # Prepare the input for the ReAct agent
+        research_input = {
+            "messages": [HumanMessage(f"Please conduct comprehensive research based on this brief: {research_brief}")]
+        }
+        
+        # Run the ReAct agent
+        research_result = react_agent.invoke(research_input)
+        
+        # Extract the research findings from the agent's response
+        research_messages = research_result.get("messages", [])
+        
+        # Get the final AI message which should contain the research summary
+        final_message = None
+        for msg in reversed(research_messages):
+            if hasattr(msg, 'type') and msg.type == 'ai':
+                final_message = msg
+                break
+        
+        if final_message:
+            research_summary = final_message.content
+        else:
+            research_summary = "Research completed but no summary available."
+        
+        # Combine all messages for context
+        all_research_messages = messages + [AIMessage(f"Research completed. Summary: {research_summary}")]
+        
+        return {
+            "messages": all_research_messages,
+            "research_brief": research_brief,
+            "research_complete": True,
+            "final_report": research_summary  # Store research findings for report generation
+        }
+        
+    except Exception as e:
+        return {
+            "messages": messages + [AIMessage(f"Error during research: {str(e)}")],
+            "research_brief": research_brief,
+            "research_complete": False,
+            "final_report": ""
+        }
 
 
 # Node 4: Generate Report (placeholder - will be implemented in later task)
@@ -393,6 +479,7 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
 
 
 
