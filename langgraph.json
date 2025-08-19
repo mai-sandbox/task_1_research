@@ -6,9 +6,10 @@
     "agent": "./agent.py:app"
   },
   "env": ".env",
-  "python_version": "3.11",
-  "pip_config_file": "pyproject.toml",
-  "dockerfile_lines": [],
+  "python_version": "3.13",
+  "dockerfile_lines": [
+    "RUN pip install --no-cache-dir langgraph tavily-python langchain python-dotenv"
+  ],
   "environment_variables": [
     "TAVILY_API_KEY",
     "OPENAI_API_KEY",
@@ -16,3 +17,4 @@
     "OPENAI_MODEL"
   ]
 }
+
