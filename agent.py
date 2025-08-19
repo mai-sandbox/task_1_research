@@ -47,11 +47,13 @@ def clarify_research_scope(state: ResearchState) -> dict:
 
     # Stage 1: Get research topic
     if not research_topic:
-        greeting = """Welcome to the Deep Research Agent! 
+        greeting = """Welcome to the Deep Research Agent!
 
-I'll help you conduct thorough research on any topic. First, let me understand what you'd like to research.
+I'll help you conduct thorough research on any topic. First, let me
+understand what you'd like to research.
 
-Please describe your research topic and any specific aspects you'd like me to focus on:"""
+Please describe your research topic and any specific aspects you'd
+like me to focus on:"""
 
         user_topic = interrupt(greeting)
         return {"research_topic": user_topic}
@@ -349,5 +351,6 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
 
     main()
+
 
 
