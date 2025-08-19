@@ -218,14 +218,16 @@ def create_research_agent():
     
     # Add nodes
     workflow.add_node("clarify_scope", clarify_scope)
+    workflow.add_node("should_proceed", should_proceed)
     workflow.add_node("react_research", react_research)
     workflow.add_node("generate_report", generate_report)
     
     # Add edges
     workflow.add_edge(START, "clarify_scope")
+    workflow.add_edge("clarify_scope", "should_proceed")
     workflow.add_conditional_edges(
-        "clarify_scope",
-        should_proceed,
+        "should_proceed",
+        lambda state: should_proceed(state),
         {
             "clarify_scope": "clarify_scope",
             "react_research": "react_research"
@@ -256,4 +258,5 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
 
