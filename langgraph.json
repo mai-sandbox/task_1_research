@@ -1,0 +1,18 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": ".env",
+  "python_version": "3.11",
+  "pip_config_file": "pyproject.toml",
+  "dockerfile_lines": [],
+  "environment_variables": [
+    "TAVILY_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_MODEL"
+  ]
+}
