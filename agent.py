@@ -241,7 +241,7 @@ def create_research_agent():
     workflow.add_edge("clarify_scope", "should_proceed")
     workflow.add_conditional_edges(
         "should_proceed",
-        lambda state: should_proceed(state),
+        should_proceed_decision,
         {
             "clarify_scope": "clarify_scope",
             "react_research": "react_research"
@@ -272,6 +272,7 @@ if __name__ == "__main__":
         print("Agent response:", result["messages"][-1].content)
     except Exception as e:
         print(f"Error testing agent: {e}")
+
 
 
 
