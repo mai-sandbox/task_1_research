@@ -321,13 +321,10 @@ def format_output_node(state: ResearchState) -> dict:
     """
     final_report = state.get("final_report", "No report generated.")
     
-    print("\n" + "="*80)
-    print("RESEARCH COMPLETE")
-    print("="*80)
-    print(final_report)
-    print("="*80 + "\n")
+    # Don't print here as it interferes with the interrupt flow
+    # The report will be in the state for the caller to access
     
-    return {"messages": state["messages"]}
+    return {"final_report": final_report}
 
 
 # Build the graph
@@ -418,6 +415,7 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
 
 
 
