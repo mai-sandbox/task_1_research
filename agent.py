@@ -38,26 +38,38 @@ def user_interaction_node(state: ResearchState) -> dict:
     """
     messages = state.get("messages", [])
     research_brief = state.get("research_brief", "")
+    interaction_count = state.get("interaction_count", 0)
     
     # If we already have a research brief, skip interaction
     if research_brief:
-        return {"research_complete": False}
+        return {}
     
-    # Initial greeting and context gathering
-    if len(messages) <= 1:
-        greeting = """
-Welcome to the Deep Research Agent! 
+    # Track interaction stages
+    if interaction_count == 0:
+        # Initial greeting and get topic
+        greeting = """Welcome to the Deep Research Agent! 
 
 I'll help you conduct thorough research on any topic. First, let me understand what you'd like to research.
 
-Please describe your research topic and any specific aspects you'd like me to focus on:
-"""
-        user_input = interrupt(greeting)
-        messages.append(HumanMessage(content=user_input))
+Please describe your research topic and any specific aspects you'd like me to focus on:"""
         
-        # Ask for clarification
-        clarification_prompt = f"""
-Thank you for sharing your research interest: "{user_input}"
+        user_input = interrupt(greeting)
+        
+        return {
+            "messages": [HumanMessage(content=f"Research topic: {user_input}")],
+            "interaction_count": 1
+        }
+    
+    elif interaction_count == 1:
+        # Get clarification
+        # Extract the topic from previous message
+        topic = ""
+        for msg in messages:
+            if isinstance(msg, HumanMessage) and "Research topic:" in msg.content:
+                topic = msg.content.replace("Research topic: ", "")
+                break
+        
+        clarification_prompt = f"""Thank you for sharing your research interest: "{topic}"
 
 To ensure I conduct the most relevant research, let me ask a few clarifying questions:
 
@@ -65,16 +77,30 @@ To ensure I conduct the most relevant research, let me ask a few clarifying ques
 2. Are there any specific sources, time periods, or perspectives you'd like me to focus on?
 3. What level of detail are you looking for (brief overview vs. comprehensive analysis)?
 
-Please provide any additional context that would help me research this effectively:
-"""
-        clarification = interrupt(clarification_prompt)
-        messages.append(HumanMessage(content=clarification))
+Please provide any additional context that would help me research this effectively:"""
         
-        # Confirm the research scope
-        confirmation_prompt = f"""
-Based on our discussion, here's my understanding of your research needs:
+        clarification = interrupt(clarification_prompt)
+        
+        return {
+            "messages": [HumanMessage(content=f"Clarification: {clarification}")],
+            "interaction_count": 2
+        }
+    
+    elif interaction_count == 2:
+        # Confirm and create research brief
+        topic = ""
+        clarification = ""
+        
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                if "Research topic:" in msg.content:
+                    topic = msg.content.replace("Research topic: ", "")
+                elif "Clarification:" in msg.content:
+                    clarification = msg.content.replace("Clarification: ", "")
+        
+        confirmation_prompt = f"""Based on our discussion, here's my understanding of your research needs:
 
-**Original Topic:** {user_input}
+**Original Topic:** {topic}
 **Additional Context:** {clarification}
 
 I'll now create a research brief and proceed with gathering information. 
@@ -84,21 +110,19 @@ Would you like to:
 2. Add more specific requirements
 3. Modify the scope
 
-Please enter 1, 2, or 3 (or just press Enter to proceed):
-"""
+Please enter 1, 2, or 3 (or just press Enter to proceed):"""
+        
         confirmation = interrupt(confirmation_prompt)
         
         if confirmation and confirmation.strip() in ["2", "3"]:
-            additional_prompt = "Please provide your additional requirements or modifications:"
-            additional_input = interrupt(additional_prompt)
-            messages.append(HumanMessage(content=additional_input))
-            clarification = f"{clarification}\n\nAdditional requirements: {additional_input}"
+            return {
+                "interaction_count": 3
+            }
         
         # Create the research brief
-        research_brief = f"""
-RESEARCH BRIEF:
+        research_brief = f"""RESEARCH BRIEF:
 ===============
-Topic: {user_input}
+Topic: {topic}
 
 Context and Requirements:
 {clarification}
@@ -107,36 +131,74 @@ Research Objectives:
 - Gather comprehensive and accurate information
 - Provide multiple perspectives where relevant
 - Include recent and authoritative sources
-- Structure findings in a clear, logical manner
-"""
+- Structure findings in a clear, logical manner"""
         
-        final_confirmation = f"""
-{research_brief}
+        return {
+            "research_brief": research_brief,
+            "interaction_count": 4
+        }
+    
+    elif interaction_count == 3:
+        # Get additional requirements
+        additional_prompt = "Please provide your additional requirements or modifications:"
+        additional_input = interrupt(additional_prompt)
+        
+        # Update the research brief with additional requirements
+        topic = ""
+        clarification = ""
+        
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                if "Research topic:" in msg.content:
+                    topic = msg.content.replace("Research topic: ", "")
+                elif "Clarification:" in msg.content:
+                    clarification = msg.content.replace("Clarification: ", "")
+        
+        clarification = f"{clarification}\n\nAdditional requirements: {additional_input}"
+        
+        research_brief = f"""RESEARCH BRIEF:
+===============
+Topic: {topic}
+
+Context and Requirements:
+{clarification}
+
+Research Objectives:
+- Gather comprehensive and accurate information
+- Provide multiple perspectives where relevant
+- Include recent and authoritative sources
+- Structure findings in a clear, logical manner"""
+        
+        return {
+            "messages": [HumanMessage(content=f"Additional: {additional_input}")],
+            "research_brief": research_brief,
+            "interaction_count": 4
+        }
+    
+    elif interaction_count == 4:
+        # Final confirmation before research
+        final_confirmation = f"""Research Brief Created!
 
 I'm ready to begin the research. This will involve:
 1. Searching for relevant information using web search
 2. Analyzing and synthesizing the findings
 3. Creating a detailed report
 
-Press Enter to start the research, or type 'cancel' to stop:
-"""
+Press Enter to start the research, or type 'cancel' to stop:"""
+        
         start_confirmation = interrupt(final_confirmation)
         
         if start_confirmation and start_confirmation.strip().lower() == 'cancel':
             return {
-                "messages": messages,
-                "research_brief": "",
                 "research_complete": True,
                 "final_report": "Research cancelled by user."
             }
         
         return {
-            "messages": messages,
-            "research_brief": research_brief,
-            "research_complete": False
+            "interaction_count": 5
         }
     
-    return {"research_complete": False}
+    return {}
 
 
 def research_execution_node(state: ResearchState) -> dict:
@@ -356,4 +418,5 @@ if __name__ == "__main__":
         print("  export ANTHROPIC_API_KEY='your-api-key'")
     
     main()
+
 
