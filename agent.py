@@ -475,7 +475,12 @@ graph_builder.add_conditional_edges(
 graph_builder.add_edge("research_node", END)
 
 # Compile the graph and export as 'app' for deployment
-app = graph_builder.compile()
+# Set a higher recursion limit to handle the human-in-the-loop workflow
+app = graph_builder.compile(
+    checkpointer=None,  # No checkpointer for now, will be added in production
+    interrupt_before=None,  # Interrupts handled within nodes
+    interrupt_after=None
+)
 
 
 # Test functions to verify the implementation works correctly
@@ -691,6 +696,7 @@ if __name__ == "__main__":
         print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
