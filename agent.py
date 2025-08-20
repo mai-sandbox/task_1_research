@@ -8,7 +8,6 @@ This agent operates in two phases:
 
 import os
 from typing import TypedDict, Annotated, Literal, List
-from typing_extensions import TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_anthropic import ChatAnthropic
@@ -330,3 +329,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         sys.exit(1)
+
