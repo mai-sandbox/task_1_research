@@ -7,15 +7,15 @@ This agent operates in two phases:
 """
 
 import os
-from typing import Annotated, TypedDict, Literal
+from typing import Annotated, TypedDict, Literal, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_anthropic import ChatAnthropic
 from langchain_tavily import TavilySearch
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langgraph.prebuilt import create_react_agent, ToolNode, tools_condition
+from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.types import interrupt, Command
+from langgraph.types import interrupt
 
 
 # State definition for the entire workflow
@@ -289,3 +289,4 @@ if __name__ == "__main__":
     # Or import and use in another script:
     # from agent import app
     # result = app.invoke({"messages": [HumanMessage("I need research help")]}, config)
+
