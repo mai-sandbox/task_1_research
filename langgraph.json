@@ -6,5 +6,18 @@
   "env": ".env",
   "python_version": "3.11",
   "pip_config_file": null,
-  "dockerfile_lines": []
+  "dockerfile_lines": [],
+  "node_version": null,
+  "database_uri": null,
+  "langsmith_api_key": null,
+  "auth": {
+    "enabled": false,
+    "jwt_secret": null
+  },
+  "metadata": {
+    "name": "Deep Research Agent",
+    "description": "Interactive research agent with scoping and ReAct search capabilities",
+    "version": "1.0.0"
+  }
 }
+
