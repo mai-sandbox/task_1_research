@@ -527,10 +527,17 @@ if __name__ == "__main__":
     # Test 2: Interactive scoping functionality  
     scoping_test_passed = test_scoping_interaction()
     
-    if test_result and scoping_test_passed:
-        print("\n🎉 All tests passed! Interactive scoping node is ready.")
+    # Test 3: ReAct research node functionality
+    research_test_passed = test_react_research_node()
+    
+    if test_result and scoping_test_passed and research_test_passed:
+        print("\n🎉 All tests passed! ReAct research node is ready.")
+        print("✅ State schema works correctly")
+        print("✅ Interactive scoping node implemented")
+        print("✅ ReAct research node with Tavily search implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
