@@ -464,8 +464,11 @@ def create_research_agent():
 
 def conduct_research(state: AgentState) -> AgentState:
     """
-    ReAct research agent node that uses Tavily search tools to conduct research
-    based on the clarified scope and generates a detailed report.
+    ReAct research agent node using create_react_agent with Tavily search tools that takes
+    the clarified research scope, creates a comprehensive research plan, uses Tavily
+    search/extract/crawl tools to gather information from multiple sources, synthesizes
+    findings into a detailed report with proper citations, and stores the final report
+    in the final_report state field.
     """
     messages = state.get("messages", [])
     research_scope = state.get("research_scope", {})
@@ -473,26 +476,69 @@ def conduct_research(state: AgentState) -> AgentState:
     if not research_scope or not research_scope.get("confirmed"):
         return state
     
+    # Notify user that research is starting
+    start_message = AIMessage(content="🔍 **Starting comprehensive research phase...**\n\nI'll now use advanced search tools to gather information from multiple sources and create a detailed report based on your requirements.")
+    
     # Create research agent
     research_agent = create_research_agent()
     
-    # Construct research prompt based on scope
+    # Create comprehensive research plan based on clarified scope
+    research_plan = _create_research_plan(research_scope)
+    
+    # Construct detailed research prompt based on scope and plan
     research_prompt = f"""
-Please conduct {research_scope.get('depth', 'comprehensive')} research on the following topic:
+You are conducting {research_scope.get('depth', 'comprehensive')} research on the following topic with a structured approach:
 
-**Topic:** {research_scope.get('topic', '')}
-**Preferred Sources:** {', '.join(research_scope.get('sources', ['general']))}
-**Timeline Focus:** {research_scope.get('timeline', 'recent')}
-**Focus Areas:** {', '.join(research_scope.get('focus_areas', ['general']))}
+**RESEARCH PARAMETERS:**
+- **Topic:** {research_scope.get('topic', '')}
+- **Depth Level:** {research_scope.get('depth', 'comprehensive')}
+- **Preferred Sources:** {', '.join(research_scope.get('sources', ['general']))}
+- **Timeline Focus:** {research_scope.get('timeline', 'recent')}
+- **Focus Areas:** {', '.join(research_scope.get('focus_areas', ['general']))}
 
-Please provide a detailed research report that includes:
-1. Executive Summary
-2. Key Findings
-3. Detailed Analysis
-4. Sources and Citations
-5. Conclusions and Implications
+**RESEARCH PLAN:**
+{research_plan}
 
-Use the search tools to gather current, accurate information from multiple sources.
+**RESEARCH METHODOLOGY:**
+1. **Initial Search Phase**: Use TavilySearch to find relevant sources and get an overview
+2. **Deep Dive Phase**: Use TavilyExtract to get detailed content from the most relevant URLs
+3. **Comprehensive Exploration**: Use TavilyCrawl to explore key websites thoroughly
+4. **Synthesis Phase**: Combine all findings into a comprehensive report
+
+**REQUIRED OUTPUT FORMAT:**
+Please provide a detailed research report with the following structure:
+
+# Research Report: {research_scope.get('topic', '')}
+
+## Executive Summary
+[Concise overview of key findings and conclusions]
+
+## Research Methodology
+[Brief description of sources and methods used]
+
+## Key Findings
+[Main discoveries organized by theme or importance]
+
+## Detailed Analysis
+[In-depth analysis based on research scope and focus areas]
+
+## Sources and Citations
+[All sources used with URLs and brief descriptions]
+
+## Conclusions and Implications
+[Summary of insights and their significance]
+
+## Recommendations
+[If applicable, actionable recommendations based on findings]
+
+**IMPORTANT INSTRUCTIONS:**
+- Use ALL available search tools (TavilySearch, TavilyExtract, TavilyCrawl) to gather comprehensive information
+- Prioritize sources that match the specified source preferences: {', '.join(research_scope.get('sources', ['general']))}
+- Focus on {research_scope.get('timeline', 'recent')} information as requested
+- Pay special attention to: {', '.join(research_scope.get('focus_areas', ['general']))}
+- Provide proper citations with URLs for all sources
+- Ensure the depth matches the requested level: {research_scope.get('depth', 'comprehensive')}
+- Synthesize information from multiple sources rather than just summarizing individual sources
 """
     
     # Execute research using the ReAct agent
@@ -501,25 +547,161 @@ Use the search tools to gather current, accurate information from multiple sourc
     }
     
     try:
+        # Execute the research with the ReAct agent
         research_result = research_agent.invoke(research_input)
         final_report = research_result["messages"][-1].content
         
-        response = AIMessage(content=f"Research completed! Here's your comprehensive report:\n\n{final_report}")
+        # Enhance the report with metadata
+        enhanced_report = _enhance_report_with_metadata(final_report, research_scope)
+        
+        # Create completion message
+        completion_message = f"""✅ **Research Completed Successfully!**
+
+I've conducted a {research_scope.get('depth', 'comprehensive')} research investigation on "{research_scope.get('topic', '')}" using multiple search tools and sources.
+
+**Research Summary:**
+- **Sources Used:** {', '.join(research_scope.get('sources', ['general']))}
+- **Timeline Focus:** {research_scope.get('timeline', 'recent')}
+- **Focus Areas:** {', '.join(research_scope.get('focus_areas', ['general']))}
+- **Tools Utilized:** TavilySearch, TavilyExtract, TavilyCrawl
+
+---
+
+{enhanced_report}"""
+        
+        response = AIMessage(content=completion_message)
         
         return {
             **state,
-            "messages": messages + [response],
+            "messages": messages + [start_message, response],
             "research_complete": True,
-            "final_report": final_report
+            "final_report": enhanced_report
         }
     
     except Exception as e:
-        error_response = AIMessage(content=f"I encountered an error during research: {str(e)}. Please check your API keys and try again.")
+        error_response = AIMessage(content=f"""❌ **Research Error Encountered**
+
+I encountered an error during the research process: {str(e)}
+
+**Troubleshooting Steps:**
+1. Verify that TAVILY_API_KEY is properly set in your environment
+2. Verify that OPENAI_API_KEY is properly set in your environment
+3. Check your internet connection
+4. Ensure you have sufficient API credits
+
+Please check your configuration and try again.""")
+        
         return {
             **state,
             "messages": messages + [error_response],
             "research_complete": False
         }
+
+
+def _create_research_plan(research_scope: dict) -> str:
+    """
+    Create a comprehensive research plan based on the clarified research scope
+    """
+    topic = research_scope.get('topic', '')
+    depth = research_scope.get('depth', 'comprehensive')
+    sources = research_scope.get('sources', ['general'])
+    timeline = research_scope.get('timeline', 'recent')
+    focus_areas = research_scope.get('focus_areas', ['general'])
+    
+    # Create depth-specific research strategies
+    depth_strategies = {
+        'basic': [
+            'Find 3-5 key sources for overview',
+            'Identify main concepts and definitions',
+            'Gather basic statistics or facts',
+            'Summarize current status'
+        ],
+        'intermediate': [
+            'Find 8-12 diverse sources across multiple perspectives',
+            'Analyze trends and patterns',
+            'Compare different viewpoints or approaches',
+            'Examine recent developments and changes',
+            'Include expert opinions and analysis'
+        ],
+        'comprehensive': [
+            'Gather 15+ sources from multiple source types',
+            'Conduct deep analysis of historical context',
+            'Examine multiple perspectives and controversies',
+            'Analyze implications and future projections',
+            'Include case studies and real-world examples',
+            'Cross-reference information across sources'
+        ]
+    }
+    
+    # Create source-specific search strategies
+    source_strategies = []
+    if 'academic' in sources:
+        source_strategies.append('- Search for scholarly articles, research papers, and academic studies')
+    if 'news' in sources:
+        source_strategies.append('- Find current news articles and journalistic reports')
+    if 'official' in sources:
+        source_strategies.append('- Look for government reports, institutional publications, and official statements')
+    if 'industry' in sources:
+        source_strategies.append('- Gather industry reports, business analyses, and commercial insights')
+    if 'general' in sources:
+        source_strategies.append('- Use broad web sources and general information repositories')
+    
+    # Create timeline-specific strategies
+    timeline_strategies = {
+        'recent': 'Focus on information from the past 1-2 years, emphasizing latest developments',
+        'historical': 'Include historical context and background, tracing development over time',
+        'comprehensive': 'Cover both historical background and recent developments for complete picture'
+    }
+    
+    # Create focus area strategies
+    focus_strategy = "Pay special attention to: " + ", ".join(focus_areas) if focus_areas != ['general'] else "Provide broad coverage of all relevant aspects"
+    
+    research_plan = f"""
+**RESEARCH STRATEGY FOR: {topic}**
+
+**Depth Level: {depth.title()}**
+{chr(10).join(f"• {strategy}" for strategy in depth_strategies.get(depth, depth_strategies['comprehensive']))}
+
+**Source Strategy:**
+{chr(10).join(source_strategies) if source_strategies else "• Use all available source types"}
+
+**Timeline Strategy:**
+• {timeline_strategies.get(timeline, timeline_strategies['recent'])}
+
+**Focus Strategy:**
+• {focus_strategy}
+
+**Search Execution Plan:**
+1. **Broad Search**: Use TavilySearch with general queries to map the landscape
+2. **Targeted Extraction**: Use TavilyExtract on the most promising URLs found
+3. **Deep Exploration**: Use TavilyCrawl on key websites for comprehensive coverage
+4. **Cross-Validation**: Verify information across multiple sources
+5. **Synthesis**: Combine findings into coherent, well-cited report
+"""
+    
+    return research_plan
+
+
+def _enhance_report_with_metadata(report: str, research_scope: dict) -> str:
+    """
+    Enhance the research report with metadata and formatting
+    """
+    from datetime import datetime
+    
+    metadata = f"""
+**Research Metadata:**
+- **Generated:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+- **Topic:** {research_scope.get('topic', '')}
+- **Depth:** {research_scope.get('depth', 'comprehensive').title()}
+- **Sources:** {', '.join(research_scope.get('sources', ['general'])).title()}
+- **Timeline:** {research_scope.get('timeline', 'recent').title()}
+- **Focus Areas:** {', '.join(research_scope.get('focus_areas', ['general'])).title()}
+
+---
+
+"""
+    
+    return metadata + report
 
 
 def should_continue_clarification(state: AgentState) -> str:
@@ -578,6 +760,7 @@ if __name__ == "__main__":
     print("Research Agent initialized. Use the 'app' variable to invoke the agent.")
     print("Example:")
     print("result = app.invoke({'messages': [HumanMessage('I want to research artificial intelligence')]})")
+
 
 
 
