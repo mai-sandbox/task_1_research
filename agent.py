@@ -653,6 +653,12 @@ def _create_research_plan(research_scope: dict) -> str:
         'comprehensive': 'Cover both historical background and recent developments for complete picture'
     }
     
+    # Handle specific timeline formats
+    if timeline.startswith('specific:'):
+        timeline_strategy = f"Focus on the specified timeframe: {timeline.replace('specific:', '').strip()}"
+    else:
+        timeline_strategy = timeline_strategies.get(timeline, timeline_strategies['recent'])
+    
     # Create focus area strategies
     focus_strategy = "Pay special attention to: " + ", ".join(focus_areas) if focus_areas != ['general'] else "Provide broad coverage of all relevant aspects"
     
@@ -760,6 +766,7 @@ if __name__ == "__main__":
     print("Research Agent initialized. Use the 'app' variable to invoke the agent.")
     print("Example:")
     print("result = app.invoke({'messages': [HumanMessage('I want to research artificial intelligence')]})")
+
 
 
 
