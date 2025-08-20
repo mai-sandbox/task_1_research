@@ -17,7 +17,7 @@ from langchain_tavily import TavilySearchResults
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import create_react_agent
-from langgraph.types import interrupt, Command
+from langgraph.types import interrupt
 
 
 # State definition
@@ -365,3 +365,4 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nError: {e}")
+
