@@ -114,7 +114,7 @@ def scoping_node(state: ResearchState) -> dict:
         # Confirm with user before proceeding
         confirmation = interrupt({
             "message": f"Great! I've prepared the following research brief:\n\n{final_brief.content}\n\n"
-                      "Type 'yes' to proceed with the research, or provide any final adjustments:",
+                       "Type 'yes' to proceed with the research, or provide any final adjustments:",
             "type": "confirmation_request"
         })
 
@@ -329,6 +329,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         sys.exit(1)
+
 
 
 
