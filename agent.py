@@ -712,15 +712,61 @@ def _enhance_report_with_metadata(report: str, research_scope: dict) -> str:
 
 def should_continue_clarification(state: AgentState) -> str:
     """
-    Conditional routing logic to determine whether to continue scope clarification
-    or proceed to research phase.
+    Conditional routing logic between the scope clarification and research phases that
+    checks the research_complete flag to determine whether to continue clarifying scope
+    or proceed to research, handles user confirmation to transition between phases, and
+    ensures proper state management throughout the workflow.
     """
     research_scope = state.get("research_scope", {})
+    research_complete = state.get("research_complete", False)
+    messages = state.get("messages", [])
     
+    # If research is already complete, end the workflow
+    if research_complete:
+        return "end"
+    
+    # Check if we have a confirmed research scope to proceed to research
     if research_scope and research_scope.get("confirmed"):
-        return "research"
-    else:
-        return "clarify"
+        # Validate that we have minimum required information for research
+        if _validate_research_scope(research_scope):
+            return "research"
+        else:
+            # Reset confirmation if scope is invalid and return to clarification
+            research_scope["confirmed"] = False
+            return "clarify"
+    
+    # Continue with scope clarification if not confirmed or incomplete
+    return "clarify"
+
+
+def _validate_research_scope(research_scope: dict) -> bool:
+    """
+    Validate that the research scope contains all necessary information
+    for conducting research.
+    """
+    required_fields = ["topic", "depth", "sources", "timeline", "focus_areas"]
+    
+    # Check that all required fields are present and non-empty
+    for field in required_fields:
+        value = research_scope.get(field)
+        if not value:
+            return False
+        
+        # Special validation for list fields
+        if isinstance(value, list) and len(value) == 0:
+            return False
+    
+    # Validate topic is meaningful (not just whitespace)
+    topic = research_scope.get("topic", "").strip()
+    if len(topic) < 3:
+        return False
+    
+    # Validate depth is one of the expected values
+    depth = research_scope.get("depth", "")
+    if depth not in ["basic", "intermediate", "comprehensive"]:
+        return False
+    
+    return True
 
 
 def create_research_workflow():
@@ -766,6 +812,7 @@ if __name__ == "__main__":
     print("Research Agent initialized. Use the 'app' variable to invoke the agent.")
     print("Example:")
     print("result = app.invoke({'messages': [HumanMessage('I want to research artificial intelligence')]})")
+
 
 
 
