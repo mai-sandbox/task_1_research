@@ -310,79 +310,109 @@ def create_research_graph():
 app = create_research_graph()
 
 
-# Optional: Add a helper function for running the agent
-def run_research_agent(initial_query: str, thread_id: str = "research-session"):
+# Helper function for testing the agent locally
+if __name__ == "__main__":
     """
-    Helper function to run the research agent with a given query.
-    
-    Args:
-        initial_query: The initial research question or topic
-        thread_id: Unique identifier for the conversation thread
-    
-    Returns:
-        The final state after research completion
+    Example usage of the Deep Research Agent.
+    This demonstrates how to run the agent with interactive scoping and research phases.
     """
-    config = {"configurable": {"thread_id": thread_id}}
+    import sys
+    from langgraph.types import Command
+    
+    print("=" * 70)
+    print("DEEP RESEARCH AGENT WITH INTERACTIVE SCOPING")
+    print("=" * 70)
+    print("\nThis agent will:")
+    print("1. Work with you interactively to clarify your research scope")
+    print("2. Conduct comprehensive web research using Tavily search")
+    print("3. Generate a detailed research report\n")
+    print("=" * 70)
+    
+    # Get initial query
+    print("\nWhat would you like to research?")
+    initial_query = input("> ")
+    
+    if not initial_query:
+        print("No query provided. Exiting.")
+        sys.exit(0)
+    
+    # Configure the session
+    config = {"configurable": {"thread_id": "research-session-001"}}
     
     # Initial state
     initial_state = {
         "messages": [HumanMessage(content=initial_query)],
         "phase": "scoping",
         "scope_confirmed": False,
-        "research_scope": ""
+        "research_scope": "",
+        "scoping_iterations": 0
     }
     
-    # Run the graph
-    result = app.invoke(initial_state, config)
+    print("\n" + "=" * 70)
+    print("STARTING INTERACTIVE SCOPING PHASE")
+    print("=" * 70)
     
-    # Handle interrupts for user interaction
-    while True:
-        # Check if we need user input
-        state = app.get_state(config)
-        if state.next:
-            # There's more to process
-            if "scoping" in state.next:
-                # We're in the scoping phase and need user input
-                print("\n[Agent is waiting for your input...]")
-                user_input = input("Your response: ")
+    try:
+        # Start the agent
+        for event in app.stream(initial_state, config):
+            # Check if we're at an interrupt point
+            if "__interrupt__" in event:
+                interrupts = event["__interrupt__"]
+                for interrupt_data in interrupts:
+                    if hasattr(interrupt_data, 'value'):
+                        interrupt_info = interrupt_data.value
+                        
+                        # Display the agent's message
+                        print("\n" + "-" * 50)
+                        print("AGENT:")
+                        print("-" * 50)
+                        print(interrupt_info.get("message", ""))
+                        
+                        # Get user input
+                        print("\n" + "-" * 50)
+                        print("YOUR RESPONSE:")
+                        user_input = input("> ")
+                        
+                        # Resume with user input
+                        app.update_state(
+                            config,
+                            {"messages": [HumanMessage(content=user_input)]},
+                            as_node="scoping"
+                        )
+            
+            # Process node outputs
+            for node_name, node_data in event.items():
+                if node_name == "scoping" and node_data.get("phase") == "researching":
+                    print("\n" + "=" * 70)
+                    print("SCOPE CONFIRMED - STARTING RESEARCH PHASE")
+                    print("=" * 70)
+                    print("\nResearch Scope:")
+                    print(node_data.get("research_scope", ""))
+                    print("\nConducting research... This may take a moment...")
                 
-                # Resume with user input
-                result = app.invoke(
-                    Command(resume={"response": user_input}),
-                    config
-                )
-            else:
-                # Continue processing
-                result = app.invoke(None, config)
-        else:
-            # We're done
-            break
+                elif node_name == "research" and node_data.get("phase") == "complete":
+                    print("\n" + "=" * 70)
+                    print("RESEARCH COMPLETE")
+                    print("=" * 70)
+                    
+                    # Display the final report
+                    messages = node_data.get("messages", [])
+                    if messages:
+                        last_message = messages[-1]
+                        if hasattr(last_message, 'content'):
+                            print(last_message.content)
+                    
+                    print("\n" + "=" * 70)
+                    print("Thank you for using the Deep Research Agent!")
+                    print("=" * 70)
     
-    return result
+    except KeyboardInterrupt:
+        print("\n\nResearch interrupted by user. Exiting...")
+    except Exception as e:
+        print(f"\nAn error occurred: {e}")
+        import traceback
+        traceback.print_exc()
 
-
-if __name__ == "__main__":
-    # Example usage
-    print("Deep Research Agent with Interactive Scoping")
-    print("=" * 50)
-    print("This agent will first work with you to clarify the research scope,")
-    print("then conduct comprehensive research using web search.\n")
-    
-    initial_query = input("What would you like to research? ")
-    
-    if initial_query:
-        final_state = run_research_agent(initial_query)
-        
-        print("\n" + "=" * 50)
-        print("RESEARCH COMPLETE")
-        print("=" * 50)
-        
-        # Print the final report
-        if final_state.get("messages"):
-            last_message = final_state["messages"][-1]
-            if hasattr(last_message, 'content'):
-                print("\nFinal Report:")
-                print(last_message.content)
 
 
 
