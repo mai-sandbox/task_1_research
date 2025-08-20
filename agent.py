@@ -1,0 +1,307 @@
+"""
+LangGraph Deep Research Agent with Interactive Scoping and ReAct Search
+
+This agent operates in two stages:
+1. Interactive Scoping: Back-and-forth with user to clarify research scope
+2. ReAct Research: Uses Tavily search to conduct research and generate report
+"""
+
+from typing import Annotated, Literal, TypedDict
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_anthropic import ChatAnthropic
+from langchain_tavily import TavilySearchResults
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import create_react_agent
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import interrupt, Command
+import os
+
+
+# State schema for the agent
+class ResearchState(TypedDict):
+    """State schema for the research agent"""
+    messages: Annotated[list[BaseMessage], add_messages]
+    research_scope: str
+    phase: Literal["scoping", "researching", "complete"]
+    scope_confirmed: bool
+
+
+def scoping_agent(state: ResearchState) -> dict:
+    """
+    Interactive scoping agent that clarifies research requirements with the user.
+    Uses interrupt() to enable back-and-forth conversation.
+    """
+    messages = state.get("messages", [])
+    scope_confirmed = state.get("scope_confirmed", False)
+    research_scope = state.get("research_scope", "")
+    
+    # If this is the first interaction or we're continuing the scoping conversation
+    if not scope_confirmed:
+        # Initialize the LLM for scoping
+        llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3)
+        
+        # System prompt for the scoping agent
+        system_prompt = SystemMessage(content="""You are a research scoping assistant. Your role is to:
+1. Understand what the user wants to research
+2. Ask clarifying questions to define the scope clearly
+3. Identify key aspects, boundaries, and specific areas of focus
+4. Summarize the research scope when ready
+
+Be conversational but focused. Ask one or two clarifying questions at a time.
+When you have enough clarity, summarize the research scope and ask for confirmation.""")
+        
+        # Get the conversation history for context
+        conversation = [system_prompt] + messages
+        
+        # Generate response
+        response = llm.invoke(conversation)
+        
+        # Check if the response indicates we have a clear scope
+        # Look for confirmation keywords in the response
+        response_text = response.content.lower()
+        
+        # If the assistant is asking for final confirmation or has a clear scope
+        if any(phrase in response_text for phrase in ["confirm", "shall i proceed", "is this correct", "ready to begin"]):
+            # Extract the research scope from the conversation
+            # Interrupt to get user confirmation
+            user_response = interrupt({
+                "message": response.content,
+                "awaiting": "confirmation",
+                "instructions": "Please respond with 'yes' to confirm the scope, or provide additional clarification."
+            })
+            
+            # Check if user confirmed
+            if user_response and isinstance(user_response, dict):
+                user_input = user_response.get("response", "").lower()
+                if "yes" in user_input or "confirm" in user_input or "proceed" in user_input:
+                    # Extract the research scope from the assistant's last message
+                    research_scope = response.content
+                    return {
+                        "messages": [response, HumanMessage(content=user_response.get("response", ""))],
+                        "research_scope": research_scope,
+                        "scope_confirmed": True,
+                        "phase": "researching"
+                    }
+                else:
+                    # User wants to clarify more
+                    return {
+                        "messages": [response, HumanMessage(content=user_response.get("response", ""))],
+                        "scope_confirmed": False,
+                        "phase": "scoping"
+                    }
+        else:
+            # Continue the scoping conversation
+            # Interrupt to get user input
+            user_response = interrupt({
+                "message": response.content,
+                "awaiting": "user_input",
+                "instructions": "Please provide your response to continue defining the research scope."
+            })
+            
+            if user_response and isinstance(user_response, dict):
+                return {
+                    "messages": [response, HumanMessage(content=user_response.get("response", ""))],
+                    "scope_confirmed": False,
+                    "phase": "scoping"
+                }
+    
+    # Default return if scope is already confirmed
+    return {
+        "phase": "researching"
+    }
+
+
+def research_agent_node(state: ResearchState) -> dict:
+    """
+    Research agent that uses ReAct pattern with Tavily search to conduct research.
+    """
+    research_scope = state.get("research_scope", "")
+    
+    if not research_scope:
+        return {
+            "messages": [AIMessage(content="No research scope defined. Please start with the scoping phase.")],
+            "phase": "complete"
+        }
+    
+    # Initialize Tavily search tool
+    tavily_tool = TavilySearchResults(
+        max_results=5,
+        search_depth="advanced",
+        include_answer=True,
+        include_raw_content=False,
+        include_images=False,
+    )
+    
+    # Create the ReAct agent with Tavily search
+    llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3)
+    
+    # Create a research prompt that incorporates the scope
+    research_prompt = f"""You are a deep research agent. Your research scope is:
+
+{research_scope}
+
+Instructions:
+1. Use the Tavily search tool to gather comprehensive information
+2. Search for multiple aspects of the topic
+3. Verify information from multiple sources when possible
+4. Synthesize findings into a detailed, well-structured report
+5. Include citations and sources
+6. Highlight key findings and insights
+7. Address all aspects mentioned in the research scope
+
+Generate a thorough research report based on your findings."""
+    
+    # Create the ReAct agent
+    react_agent = create_react_agent(
+        model=llm,
+        tools=[tavily_tool],
+        state_schema=ResearchState,
+    )
+    
+    # Invoke the ReAct agent with the research prompt
+    research_input = {
+        "messages": [SystemMessage(content=research_prompt), HumanMessage(content=f"Please research: {research_scope}")]
+    }
+    
+    # Run the ReAct agent
+    result = react_agent.invoke(research_input)
+    
+    # Extract the final report from the agent's messages
+    final_message = result["messages"][-1] if result.get("messages") else AIMessage(content="Research completed but no results found.")
+    
+    return {
+        "messages": [final_message],
+        "phase": "complete"
+    }
+
+
+def route_phase(state: ResearchState) -> Literal["scoping", "research", "end"]:
+    """
+    Route to the appropriate phase based on the current state.
+    """
+    phase = state.get("phase", "scoping")
+    scope_confirmed = state.get("scope_confirmed", False)
+    
+    if phase == "complete":
+        return "end"
+    elif scope_confirmed and phase == "researching":
+        return "research"
+    else:
+        return "scoping"
+
+
+# Build the graph
+def create_research_graph():
+    """
+    Create the two-stage research agent graph.
+    """
+    # Initialize the graph with our state schema
+    graph = StateGraph(ResearchState)
+    
+    # Add nodes
+    graph.add_node("scoping", scoping_agent)
+    graph.add_node("research", research_agent_node)
+    
+    # Add edges
+    graph.add_edge(START, "scoping")
+    
+    # Add conditional routing
+    graph.add_conditional_edges(
+        "scoping",
+        route_phase,
+        {
+            "scoping": "scoping",  # Continue scoping
+            "research": "research",  # Move to research
+            "end": END
+        }
+    )
+    
+    graph.add_edge("research", END)
+    
+    # Add memory for persistence
+    memory = MemorySaver()
+    
+    # Compile the graph with checkpointer for interrupt support
+    compiled_graph = graph.compile(checkpointer=memory)
+    
+    return compiled_graph
+
+
+# Create and export the app
+app = create_research_graph()
+
+
+# Optional: Add a helper function for running the agent
+def run_research_agent(initial_query: str, thread_id: str = "research-session"):
+    """
+    Helper function to run the research agent with a given query.
+    
+    Args:
+        initial_query: The initial research question or topic
+        thread_id: Unique identifier for the conversation thread
+    
+    Returns:
+        The final state after research completion
+    """
+    config = {"configurable": {"thread_id": thread_id}}
+    
+    # Initial state
+    initial_state = {
+        "messages": [HumanMessage(content=initial_query)],
+        "phase": "scoping",
+        "scope_confirmed": False,
+        "research_scope": ""
+    }
+    
+    # Run the graph
+    result = app.invoke(initial_state, config)
+    
+    # Handle interrupts for user interaction
+    while True:
+        # Check if we need user input
+        state = app.get_state(config)
+        if state.next:
+            # There's more to process
+            if "scoping" in state.next:
+                # We're in the scoping phase and need user input
+                print("\n[Agent is waiting for your input...]")
+                user_input = input("Your response: ")
+                
+                # Resume with user input
+                result = app.invoke(
+                    Command(resume={"response": user_input}),
+                    config
+                )
+            else:
+                # Continue processing
+                result = app.invoke(None, config)
+        else:
+            # We're done
+            break
+    
+    return result
+
+
+if __name__ == "__main__":
+    # Example usage
+    print("Deep Research Agent with Interactive Scoping")
+    print("=" * 50)
+    print("This agent will first work with you to clarify the research scope,")
+    print("then conduct comprehensive research using web search.\n")
+    
+    initial_query = input("What would you like to research? ")
+    
+    if initial_query:
+        final_state = run_research_agent(initial_query)
+        
+        print("\n" + "=" * 50)
+        print("RESEARCH COMPLETE")
+        print("=" * 50)
+        
+        # Print the final report
+        if final_state.get("messages"):
+            last_message = final_state["messages"][-1]
+            if hasattr(last_message, 'content'):
+                print("\nFinal Report:")
+                print(last_message.content)
