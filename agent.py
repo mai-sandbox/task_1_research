@@ -613,7 +613,7 @@ def test_routing_logic():
             "user_confirmed": True
         }
         
-        routing_result = routing_node(research_state)
+        routing_result = routing_logic(research_state)
         assert routing_result == "research_node", f"Expected 'research_node', got '{routing_result}'"
         print("✅ Routing to research_node test passed")
         
@@ -677,6 +677,7 @@ if __name__ == "__main__":
         print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
