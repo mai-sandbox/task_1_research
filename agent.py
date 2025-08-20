@@ -265,21 +265,14 @@ def create_research_agent():
         api_key=os.getenv("OPENAI_API_KEY")
     )
     
-    # Initialize Tavily search tools
-    tavily_search = TavilySearchResults(
-        max_results=10,
-        api_key=os.getenv("TAVILY_API_KEY")
-    )
-    
-    tavily_answer = TavilyAnswer(
-        api_key=os.getenv("TAVILY_API_KEY")
-    )
+    # Use the custom Tavily tools as specified in the task requirements
+    tools = [TavilySearch, TavilyExtract, TavilyCrawl]
     
     # Create the ReAct agent with tools
     research_agent = create_react_agent(
         model=llm,
-        tools=[tavily_search, tavily_answer],
-        state_modifier="You are a professional research assistant. Use the available search tools to conduct thorough research based on the provided research scope. Synthesize information from multiple sources and provide comprehensive, well-cited reports."
+        tools=tools,
+        state_modifier="You are a professional research assistant. Use the available search tools to conduct thorough research based on the provided research scope. Use TavilySearch for general web searches, TavilyExtract to get detailed content from specific URLs, and TavilyCrawl to comprehensively explore websites. Synthesize information from multiple sources and provide comprehensive, well-cited reports."
     )
     
     return research_agent
@@ -401,6 +394,7 @@ if __name__ == "__main__":
     print("Research Agent initialized. Use the 'app' variable to invoke the agent.")
     print("Example:")
     print("result = app.invoke({'messages': [HumanMessage('I want to research artificial intelligence')]})")
+
 
 
 
