@@ -15,7 +15,9 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.types import interrupt
+from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_tavily import TavilySearch
 
 
 class ResearchState(TypedDict):
@@ -332,6 +334,7 @@ if __name__ == "__main__":
         print("\n🎉 All tests passed! Interactive scoping node is ready.")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
