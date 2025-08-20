@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "dependencies": [
+    ".",
+    "langchain-openai",
+    "langchain-community",
+    "tavily-python"
+  ],
+  "graphs": {
+    "research_agent": {
+      "module": "agent",
+      "instance": "app",
+      "description": "Deep research agent with clarification and search capabilities"
+    }
+  },
+  "env": {
+    "OPENAI_API_KEY": {
+      "description": "OpenAI API key for LLM",
+      "required": true
+    },
+    "TAVILY_API_KEY": {
+      "description": "Tavily API key for web search",
+      "required": true
+    }
+  }
+}
