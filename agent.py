@@ -53,89 +53,180 @@ def scoping_agent(state: ResearchState) -> Dict[str, Any]:
     """
     Interactive scoping agent that clarifies research requirements with the user.
     Uses interrupt() to pause execution and gather user input via terminal.
+    
+    This agent:
+    1. Engages in back-and-forth conversation to understand research needs
+    2. Asks targeted clarifying questions about scope, depth, and requirements
+    3. Continues dialogue until confident about the research brief
+    4. Returns a structured research brief for the ReAct agent
     """
     messages = state.get("messages", [])
     research_phase = state.get("research_phase", "scoping")
+    scoping_complete = state.get("scoping_complete", False)
+    
+    # Extract only human and AI messages for conversation context
+    conversation_messages = [msg for msg in messages if isinstance(msg, (HumanMessage, AIMessage))]
     
     # If we're just starting, provide initial greeting
-    if len(messages) == 1:  # Only the initial user message
-        initial_prompt = """I'm your research assistant. I'll help you conduct thorough research on your topic.
+    if len(conversation_messages) == 1:  # Only the initial user message
+        initial_prompt = """Hello! I'm your deep research assistant. I'll help you conduct thorough, comprehensive research on your topic.
+
+To ensure I provide the most relevant and valuable insights, I need to understand your research requirements better. I'll ask you a series of clarifying questions to build a detailed research brief.
+
+Let's start by understanding your main research focus."""
         
-To ensure I provide the most relevant and comprehensive research, I need to understand your requirements better.
-Let me ask you a few clarifying questions about your research needs."""
+        first_question = "What is the main topic, question, or problem you want me to research? Please be as specific as possible."
         
-        # Ask the first clarifying question
-        scoping_questions = [
-            "What is the main topic or question you want me to research?",
-            "What specific aspects or angles are you most interested in?",
-            "How deep should the research go? (Quick overview vs. comprehensive analysis)",
-            "Are there any specific sources or types of information you prefer?",
-            "What will you use this research for? (This helps me tailor the format and depth)"
-        ]
-        
-        response = AIMessage(content=f"{initial_prompt}\n\nLet's start with: {scoping_questions[0]}")
+        response_content = f"{initial_prompt}\n\n**Question 1:** {first_question}"
+        response = AIMessage(content=response_content)
         
         # Interrupt to get user input
-        user_response = interrupt({"question": scoping_questions[0]})
+        user_input = interrupt({
+            "stage": "initial_scoping",
+            "question": first_question,
+            "message": "Please provide your response:"
+        })
         
         return {
-            "messages": [response, HumanMessage(content=user_response["response"])],
-            "research_phase": "scoping"
+            "messages": [response, HumanMessage(content=user_input.get("response", user_input.get("data", "")))],
+            "research_phase": "scoping",
+            "scoping_complete": False
         }
     
     # Continue the scoping conversation
     scoping_llm = llm.bind_tools([], tool_choice="none")  # No tools during scoping
     
-    # Build conversation context
-    scoping_prompt = SystemMessage(content="""You are a research scoping assistant. Your job is to:
-1. Understand the user's research needs through clarifying questions
-2. Build a comprehensive research brief
-3. Determine when you have enough information to proceed
+    # Build conversation context with enhanced prompt
+    scoping_prompt = SystemMessage(content="""You are an expert research scoping assistant engaged in an interactive dialogue with the user.
 
-Ask clarifying questions one at a time. Focus on:
-- Topic clarity and boundaries
-- Depth and breadth requirements
-- Specific areas of interest
-- Preferred sources or methodologies
-- Expected output format
+Your role is to:
+1. Understand the user's research needs through targeted clarifying questions
+2. Build a comprehensive research brief through iterative conversation
+3. Ensure all critical aspects are covered before proceeding
 
-When you have enough information, create a structured research brief and indicate you're ready to proceed.""")
+Guidelines for your conversation:
+- Ask ONE clarifying question at a time
+- Build upon previous answers to go deeper
+- Be conversational but professional
+- Show that you understand their needs by summarizing key points
+- Focus on gathering information about:
+  * Core research topic and specific questions
+  * Scope boundaries (what to include/exclude)
+  * Required depth of analysis (surface-level vs deep dive)
+  * Specific aspects or angles of interest
+  * Time period or geographic focus (if relevant)
+  * Preferred sources or methodologies
+  * Expected output format and use case
+  * Any constraints or special requirements
+
+After gathering sufficient information (typically 4-7 exchanges), indicate you're ready to proceed by saying "I now have a comprehensive understanding of your research needs."
+
+Current conversation stage: You've had {num_exchanges} exchanges with the user.""".format(
+        num_exchanges=len(conversation_messages) // 2
+    ))
     
-    conversation = [scoping_prompt] + messages
+    conversation = [scoping_prompt] + conversation_messages
     response = scoping_llm.invoke(conversation)
     
-    # Check if scoping is complete
-    completion_check = llm.invoke([
-        SystemMessage(content="Determine if the following conversation has gathered enough information for research. Respond with only 'YES' or 'NO'."),
-        *messages,
-        response
-    ])
+    # Check if scoping is complete by looking for completion indicators
+    completion_indicators = [
+        "comprehensive understanding",
+        "ready to proceed",
+        "have all the information",
+        "sufficient information",
+        "research brief is complete"
+    ]
     
-    if "YES" in completion_check.content.upper():
-        # Generate the research brief
-        brief_prompt = SystemMessage(content="""Based on the conversation, create a structured research brief that includes:
-1. Main research topic/question
-2. Specific areas to investigate
-3. Required depth of analysis
-4. Any constraints or preferences
-5. Expected deliverables
+    is_complete = any(indicator in response.content.lower() for indicator in completion_indicators)
+    
+    # Also check if we've had enough exchanges (minimum 3, maximum 10)
+    num_exchanges = len(conversation_messages) // 2
+    if num_exchanges >= 3 and ("?" not in response.content or is_complete):
+        # Time to finalize the research brief
+        is_complete = True
+    
+    if is_complete:
+        # Generate the structured research brief
+        brief_prompt = SystemMessage(content="""Based on the conversation with the user, create a comprehensive, structured research brief.
 
-Format as a clear, actionable brief for the research phase.""")
+The brief should include:
+
+# Research Brief
+
+## 1. Primary Research Question/Topic
+[State the main research focus clearly]
+
+## 2. Scope and Boundaries
+- What to include:
+- What to exclude:
+- Geographic/temporal focus (if applicable):
+
+## 3. Specific Areas of Investigation
+[List 3-5 key areas to explore]
+
+## 4. Depth of Analysis Required
+[Specify the level of detail needed]
+
+## 5. Preferred Sources and Methodologies
+[Note any preferences mentioned]
+
+## 6. Constraints and Special Requirements
+[List any limitations or special needs]
+
+## 7. Expected Deliverables
+[Describe the desired output format and use case]
+
+## 8. Success Criteria
+[What would make this research successful for the user]
+
+Make this brief actionable and comprehensive for the research phase.""")
         
-        brief_response = llm.invoke([brief_prompt] + messages + [response])
+        brief_response = llm.invoke([brief_prompt] + conversation_messages + [response])
+        
+        confirmation_message = f"""Excellent! I now have a comprehensive understanding of your research needs. 
+
+{response.content}
+
+Based on our conversation, I've prepared the following research brief:
+
+{brief_response.content}
+
+I'll now proceed to conduct thorough research based on this brief. The research phase will involve:
+1. Systematic web searches using advanced search tools
+2. Analysis and synthesis of findings
+3. Generation of a comprehensive report
+
+Starting the research phase now..."""
         
         return {
-            "messages": [response, AIMessage(content=f"Great! I have all the information I need. Here's the research brief:\n\n{brief_response.content}\n\nNow proceeding to conduct the research...")],
+            "messages": [AIMessage(content=confirmation_message)],
             "research_brief": brief_response.content,
             "research_phase": "researching",
             "scoping_complete": True
         }
     else:
         # Continue scoping - ask for more information
-        user_response = interrupt({"question": "Please provide more details or answer the question above"})
+        # Extract the question from the response if it exists
+        question_prompt = response.content
+        if "?" in response.content:
+            # Extract the last question asked
+            lines = response.content.split('\n')
+            question_lines = [line for line in lines if '?' in line]
+            if question_lines:
+                question_prompt = question_lines[-1]
+        
+        # Interrupt to get user input for the next question
+        user_input = interrupt({
+            "stage": "continued_scoping",
+            "question": question_prompt,
+            "exchange_number": num_exchanges + 1,
+            "message": "Please provide your response:"
+        })
+        
+        user_response_content = user_input.get("response", user_input.get("data", ""))
         
         return {
-            "messages": [response, HumanMessage(content=user_response["response"])],
+            "messages": [response, HumanMessage(content=user_response_content)],
             "research_phase": "scoping",
             "scoping_complete": False
         }
@@ -299,3 +390,4 @@ if __name__ == "__main__":
     # Example usage
     print("LangGraph Deep Research Agent initialized.")
     print("Use app.invoke() with initial state to start research.")
+
