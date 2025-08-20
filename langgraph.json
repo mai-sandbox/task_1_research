@@ -1,0 +1,33 @@
+{
+  "dependencies": [
+    "./requirements.txt"
+  ],
+  "graphs": {
+    "agent": {
+      "path": "./agent.py:app",
+      "description": "LangGraph Deep Research Agent with Interactive Scoping and ReAct Search",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "tavily_api_key": {
+            "type": "string",
+            "description": "API key for Tavily search service"
+          },
+          "openai_api_key": {
+            "type": "string", 
+            "description": "API key for OpenAI language model (optional)"
+          },
+          "anthropic_api_key": {
+            "type": "string",
+            "description": "API key for Anthropic language model (optional)"
+          }
+        }
+      }
+    }
+  },
+  "env": [
+    "TAVILY_API_KEY",
+    "OPENAI_API_KEY", 
+    "ANTHROPIC_API_KEY"
+  ]
+}
