@@ -424,13 +424,8 @@ def test_scoping_interaction():
     
     print("\n🧪 Testing interactive scoping node...")
     
-    # Test initial scoping
-    initial_state = {
-        "messages": [HumanMessage("I want to research machine learning applications in healthcare")]
-    }
-    
     try:
-        # This should trigger the scoping node and generate clarifying questions
+        # Test initial scoping
         print("Testing initial scoping interaction...")
         
         # Since we can't actually interrupt in a test, let's test the logic
@@ -478,6 +473,49 @@ def test_scoping_interaction():
         return False
 
 
+def test_react_research_node():
+    """
+    Test the ReAct research node functionality.
+    """
+    print("\n🧪 Testing ReAct research node...")
+    
+    try:
+        # Test research node with a sample research brief
+        research_state = {
+            "messages": [HumanMessage("I want to research AI")],
+            "research_brief": "Artificial Intelligence applications in healthcare - focus on diagnostic tools, machine learning algorithms, and patient outcome improvements",
+            "phase": "research",
+            "user_confirmed": True
+        }
+        
+        print("Testing research node execution...")
+        
+        # Test the research node function directly
+        research_result = create_research_node(research_state)
+        
+        # Verify the research node processed correctly
+        assert len(research_result["messages"]) > 1
+        assert research_result["phase"] == "completed"
+        assert research_result["user_confirmed"] == True
+        
+        # Check that a research report was generated
+        last_message = research_result["messages"][-1]
+        assert isinstance(last_message, AIMessage)
+        assert len(last_message.content) > 100  # Substantial content
+        assert "Research Report" in last_message.content or "research" in last_message.content.lower()
+        
+        print("✅ ReAct research node test passed")
+        print("✅ Research node implementation is working correctly")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Research node test failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 if __name__ == "__main__":
     # Run tests when script is executed directly
     print("🚀 Testing LangGraph Deep Research Agent Implementation")
@@ -493,6 +531,7 @@ if __name__ == "__main__":
         print("\n🎉 All tests passed! Interactive scoping node is ready.")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
