@@ -38,7 +38,9 @@ def get_llm():
     elif os.getenv("OPENAI_API_KEY"):
         return ChatOpenAI(model="gpt-4o", temperature=0.7)
     else:
-        raise ValueError("No LLM API key found. Please set either ANTHROPIC_API_KEY or OPENAI_API_KEY")
+        raise ValueError(
+            "No LLM API key found. Please set either ANTHROPIC_API_KEY or OPENAI_API_KEY"
+        )
 
 
 def scoping_node(state: ResearchState) -> dict:
@@ -73,7 +75,9 @@ def scoping_node(state: ResearchState) -> dict:
         user_response = interrupt(
             {
                 "message": "I'll help you with your research. To ensure I provide the most relevant information, "
-                "I have a few clarifying questions:\n\n" + questions + "\n\nPlease provide your answers:",
+                "I have a few clarifying questions:\n\n"
+                + questions
+                + "\n\nPlease provide your answers:",
                 "type": "clarification_request",
             }
         )
@@ -125,13 +129,22 @@ def scoping_node(state: ResearchState) -> dict:
             research_brief += f"\n\nFinal adjustments: {confirmation}"
             # Regenerate the brief with adjustments
             final_brief = llm.invoke(
-                [SystemMessage(content=final_brief_prompt + f"\n\nUser adjustments: {confirmation}")]
+                [
+                    SystemMessage(
+                        content=final_brief_prompt
+                        + f"\n\nUser adjustments: {confirmation}"
+                    )
+                ]
             )
 
         return {
             "research_brief": final_brief.content,
             "phase": "research",
-            "messages": [AIMessage(content="Research brief finalized. Starting detailed research...")],
+            "messages": [
+                AIMessage(
+                    content="Research brief finalized. Starting detailed research..."
+                )
+            ],
         }
     else:
         # Need more clarification
@@ -180,11 +193,15 @@ def research_node(state: ResearchState) -> dict:
     Conduct thorough research and gather comprehensive information."""
 
     # Create ReAct agent with Tavily tool
-    react_agent = create_react_agent(model=llm, tools=[search_tool], prompt=research_prompt)
+    react_agent = create_react_agent(
+        model=llm, tools=[search_tool], prompt=research_prompt
+    )
 
     # Execute research
     research_messages = [
-        HumanMessage(content=f"Please conduct detailed research based on this brief: {research_brief}")
+        HumanMessage(
+            content=f"Please conduct detailed research based on this brief: {research_brief}"
+        )
     ]
 
     research_result = react_agent.invoke({"messages": research_messages})
