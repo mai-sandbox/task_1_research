@@ -94,7 +94,7 @@ Let's start by understanding your main research focus."""
         }
     
     # Continue the scoping conversation
-    scoping_llm = llm.bind_tools([], tool_choice="none")  # No tools during scoping
+    scoping_llm = llm  # No tools during scoping
     
     # Build conversation context with enhanced prompt
     scoping_prompt = SystemMessage(content="""You are an expert research scoping assistant engaged in an interactive dialogue with the user.
@@ -595,6 +595,7 @@ if __name__ == "__main__":
     # Example usage
     print("LangGraph Deep Research Agent initialized.")
     print("Use app.invoke() with initial state to start research.")
+
 
 
 
