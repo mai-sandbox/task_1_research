@@ -264,7 +264,14 @@ def route_phase(state: ResearchState) -> Literal["scoping", "research", "end"]:
 # Build the graph
 def create_research_graph():
     """
-    Create the two-stage research agent graph.
+    Create the two-stage research agent graph with interactive scoping and ReAct research.
+    
+    This graph implements a two-phase research workflow:
+    1. Scoping Phase: Interactive back-and-forth with user to clarify research requirements
+    2. Research Phase: ReAct agent with Tavily search to conduct comprehensive research
+    
+    Returns:
+        CompiledStateGraph: The compiled LangGraph agent ready for deployment
     """
     # Initialize the graph with our state schema
     graph = StateGraph(ResearchState)
@@ -276,20 +283,21 @@ def create_research_graph():
     # Add edges
     graph.add_edge(START, "scoping")
     
-    # Add conditional routing
+    # Add conditional routing from scoping node
     graph.add_conditional_edges(
         "scoping",
         route_phase,
         {
-            "scoping": "scoping",  # Continue scoping
-            "research": "research",  # Move to research
-            "end": END
+            "scoping": "scoping",  # Continue scoping conversation
+            "research": "research",  # Move to research phase
+            "end": END  # End if needed
         }
     )
     
+    # Research always leads to END
     graph.add_edge("research", END)
     
-    # Add memory for persistence
+    # Add memory for persistence (required for interrupt support)
     memory = MemorySaver()
     
     # Compile the graph with checkpointer for interrupt support
@@ -298,7 +306,7 @@ def create_research_graph():
     return compiled_graph
 
 
-# Create and export the app
+# Create and export the app (required by AGENTS.md)
 app = create_research_graph()
 
 
@@ -375,6 +383,7 @@ if __name__ == "__main__":
             if hasattr(last_message, 'content'):
                 print("\nFinal Report:")
                 print(last_message.content)
+
 
 
 
