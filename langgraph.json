@@ -1,0 +1,19 @@
+{
+  "python_version": "3.11",
+  "dependencies": [
+    "requirements.txt"
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": {
+    "OPENAI_API_KEY": {
+      "required": true,
+      "description": "OpenAI API key for LLM calls"
+    },
+    "TAVILY_API_KEY": {
+      "required": true,
+      "description": "Tavily API key for web search"
+    }
+  }
+}
