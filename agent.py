@@ -771,7 +771,8 @@ def _validate_research_scope(research_scope: dict) -> bool:
 
 def create_research_workflow():
     """
-    Create and compile the LangGraph workflow with conditional routing
+    Create and compile the LangGraph workflow with enhanced conditional routing
+    that ensures proper state management throughout the workflow.
     """
     # Create the state graph
     workflow = StateGraph(AgentState)
@@ -783,17 +784,26 @@ def create_research_workflow():
     # Add edges
     workflow.add_edge(START, "clarify_scope")
     
-    # Add conditional routing
+    # Add enhanced conditional routing between scope clarification and research phases
     workflow.add_conditional_edges(
         "clarify_scope",
         should_continue_clarification,
         {
-            "clarify": "clarify_scope",
-            "research": "conduct_research"
+            "clarify": "clarify_scope",  # Continue scope clarification
+            "research": "conduct_research",  # Proceed to research phase
+            "end": END  # End workflow if research is complete
         }
     )
     
-    workflow.add_edge("conduct_research", END)
+    # Add conditional routing after research completion
+    workflow.add_conditional_edges(
+        "conduct_research",
+        _check_research_completion,
+        {
+            "complete": END,  # End workflow when research is complete
+            "retry": "clarify_scope"  # Return to clarification if research failed
+        }
+    )
     
     # Add memory checkpointer
     memory = MemorySaver()
@@ -812,6 +822,7 @@ if __name__ == "__main__":
     print("Research Agent initialized. Use the 'app' variable to invoke the agent.")
     print("Example:")
     print("result = app.invoke({'messages': [HumanMessage('I want to research artificial intelligence')]})")
+
 
 
 
