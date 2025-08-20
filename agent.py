@@ -61,14 +61,15 @@ Let's start by discussing your research needs. What would you like me to researc
         }
 
     # Prepare conversation for the LLM to analyze
-    system_prompt = """You are a research assistant helping to clarify and refine a research brief.
-    Your goal is to understand the user's research needs thoroughly before proceeding.
-    
-    Analyze the conversation and determine if you have enough information to create a comprehensive research brief.
-    If you need more clarification, ask specific, targeted questions.
-    If you have sufficient information, create a detailed research brief.
-    
-    When you have enough information, start your response with "RESEARCH_BRIEF_READY:" followed by the brief."""
+    system_prompt = """You are a research assistant helping to clarify and refine a research
+    brief. Your goal is to understand the user's research needs thoroughly before proceeding.
+
+    Analyze the conversation and determine if you have enough information to create a
+    comprehensive research brief. If you need more clarification, ask specific, targeted
+    questions. If you have sufficient information, create a detailed research brief.
+
+    When you have enough information, start your response with "RESEARCH_BRIEF_READY:"
+    followed by the brief."""
 
     # Get LLM's analysis of the conversation
     llm_messages = [SystemMessage(content=system_prompt)] + messages
@@ -305,4 +306,5 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
 
