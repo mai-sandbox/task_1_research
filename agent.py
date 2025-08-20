@@ -22,6 +22,7 @@ from langgraph.types import interrupt, Command
 # State definition for the agent
 class ResearchState(TypedDict):
     """State schema for the research agent"""
+
     messages: Annotated[List[BaseMessage], add_messages]
     research_brief: str
     phase: Literal["scoping", "research", "complete"]
@@ -71,11 +72,15 @@ def scoping_node(state: ResearchState) -> dict:
         questions = response.content
 
         # Use interrupt to get user input
-        user_response = interrupt({
-            "message": "I'll help you with your research. To ensure I provide the most relevant information, "
-                       "I have a few clarifying questions:\n\n" + questions + "\n\nPlease provide your answers:",
-            "type": "clarification_request"
-        })
+        user_response = interrupt(
+            {
+                "message": "I'll help you with your research. To ensure I provide the most relevant information, "
+                "I have a few clarifying questions:\n\n"
+                + questions
+                + "\n\nPlease provide your answers:",
+                "type": "clarification_request",
+            }
+        )
 
         # Update research brief with initial responses
         research_brief = f"User responses to initial questions:\n{user_response}"
@@ -112,37 +117,50 @@ def scoping_node(state: ResearchState) -> dict:
         final_brief = llm.invoke([SystemMessage(content=final_brief_prompt)])
 
         # Confirm with user before proceeding
-        confirmation = interrupt({
-            "message": f"Great! I've prepared the following research brief:\n\n{final_brief.content}\n\n"
-                       "Type 'yes' to proceed with the research, or provide any final adjustments:",
-            "type": "confirmation_request"
-        })
+        confirmation = interrupt(
+            {
+                "message": f"Great! I've prepared the following research brief:\n\n{final_brief.content}\n\n"
+                "Type 'yes' to proceed with the research, or provide any final adjustments:",
+                "type": "confirmation_request",
+            }
+        )
 
         if confirmation.lower() != "yes":
             research_brief += f"\n\nFinal adjustments: {confirmation}"
             # Regenerate the brief with adjustments
-            final_brief = llm.invoke([
-                SystemMessage(content=final_brief_prompt + f"\n\nUser adjustments: {confirmation}")
-            ])
+            final_brief = llm.invoke(
+                [
+                    SystemMessage(
+                        content=final_brief_prompt
+                        + f"\n\nUser adjustments: {confirmation}"
+                    )
+                ]
+            )
 
         return {
             "research_brief": final_brief.content,
             "phase": "research",
-            "messages": [AIMessage(content="Research brief finalized. Starting detailed research...")]
+            "messages": [
+                AIMessage(
+                    content="Research brief finalized. Starting detailed research..."
+                )
+            ],
         }
     else:
         # Need more clarification
-        follow_up = interrupt({
-            "message": f"I need a bit more clarification:\n\n{validation_response.content}\n\nYour response:",
-            "type": "follow_up_request"
-        })
+        follow_up = interrupt(
+            {
+                "message": f"I need a bit more clarification:\n\n{validation_response.content}\n\nYour response:",
+                "type": "follow_up_request",
+            }
+        )
 
         research_brief += f"\n\nAdditional clarification:\n{follow_up}"
 
         return {
             "research_brief": research_brief,
             "phase": "scoping",
-            "messages": [AIMessage(content="Gathering more information...")]
+            "messages": [AIMessage(content="Gathering more information...")],
         }
 
 
@@ -176,14 +194,14 @@ def research_node(state: ResearchState) -> dict:
 
     # Create ReAct agent with Tavily tool
     react_agent = create_react_agent(
-        model=llm,
-        tools=[search_tool],
-        prompt=research_prompt
+        model=llm, tools=[search_tool], prompt=research_prompt
     )
 
     # Execute research
     research_messages = [
-        HumanMessage(content=f"Please conduct detailed research based on this brief: {research_brief}")
+        HumanMessage(
+            content=f"Please conduct detailed research based on this brief: {research_brief}"
+        )
     ]
 
     research_result = react_agent.invoke({"messages": research_messages})
@@ -211,7 +229,7 @@ def research_node(state: ResearchState) -> dict:
     return {
         "final_report": report_response.content,
         "phase": "complete",
-        "messages": [AIMessage(content="Research completed. Report generated.")]
+        "messages": [AIMessage(content="Research completed. Report generated.")],
     }
 
 
@@ -233,9 +251,7 @@ def format_output(state: ResearchState) -> dict:
 
     if final_report:
         output_message = f"\n{'=' * 80}\n📊 RESEARCH REPORT\n{'=' * 80}\n\n{final_report}\n\n{'=' * 80}"
-        return {
-            "messages": [AIMessage(content=output_message)]
-        }
+        return {"messages": [AIMessage(content=output_message)]}
     return state
 
 
@@ -256,10 +272,7 @@ def build_graph():
     workflow.add_conditional_edges(
         "scoping",
         lambda state: "research" if state.get("phase") == "research" else "scoping",
-        {
-            "scoping": "scoping",
-            "research": "research"
-        }
+        {"scoping": "scoping", "research": "research"},
     )
 
     workflow.add_edge("research", "output")
@@ -295,7 +308,7 @@ if __name__ == "__main__":
         "messages": [HumanMessage(content=initial_request)],
         "phase": "scoping",
         "research_brief": "",
-        "final_report": ""
+        "final_report": "",
     }
 
     try:
@@ -329,8 +342,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         sys.exit(1)
-
-
-
-
-
