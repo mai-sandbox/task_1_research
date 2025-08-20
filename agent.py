@@ -222,14 +222,49 @@ def create_research_node(state: ResearchState) -> ResearchState:
     Returns:
         Updated state with comprehensive research results
     """
-    # Configure TavilySearch with advanced parameters as specified
-    tavily_search = TavilySearch(
-        max_results=10,
-        search_depth='advanced', 
-        include_answer=True,
-        include_raw_content=True,  # Include full content for comprehensive analysis
-        include_images=False  # Focus on text-based research
-    )
+    import os
+    
+    # Check if Tavily API key is available
+    tavily_api_key = os.getenv("TAVILY_API_KEY")
+    
+    if not tavily_api_key:
+        # Handle missing API key gracefully
+        fallback_message = AIMessage(
+            content=f"# Research Report\n\n"
+                   f"**Topic:** {state['research_brief']}\n\n"
+                   f"**Note:** To conduct live web searches, please set the `TAVILY_API_KEY` environment variable. "
+                   f"For now, I'll provide you with a structured research framework:\n\n"
+                   f"{generate_mock_research_report(state['research_brief'])}\n\n"
+                   f"**To enable live search capabilities:**\n"
+                   f"1. Get a free API key from https://app.tavily.com/\n"
+                   f"2. Set the environment variable: `export TAVILY_API_KEY=your_api_key`\n"
+                   f"3. Re-run the agent for comprehensive web-based research"
+        )
+        state["messages"].append(fallback_message)
+        state["phase"] = "completed"
+        return state
+    
+    try:
+        # Configure TavilySearch with advanced parameters as specified
+        tavily_search = TavilySearch(
+            max_results=10,
+            search_depth='advanced', 
+            include_answer=True,
+            include_raw_content=True,  # Include full content for comprehensive analysis
+            include_images=False  # Focus on text-based research
+        )
+    except Exception as e:
+        # Handle TavilySearch initialization errors
+        error_message = AIMessage(
+            content=f"# Research Report\n\n"
+                   f"**Topic:** {state['research_brief']}\n\n"
+                   f"**Error:** Could not initialize Tavily search: {str(e)}\n\n"
+                   f"**Fallback Research Framework:**\n\n"
+                   f"{generate_mock_research_report(state['research_brief'])}"
+        )
+        state["messages"].append(error_message)
+        state["phase"] = "completed"
+        return state
     
     # Create ReAct agent with Tavily search tool
     # Note: We'll use a simple model for now - this can be configured via environment
@@ -537,6 +572,7 @@ if __name__ == "__main__":
         print("✅ ReAct research node with Tavily search implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
