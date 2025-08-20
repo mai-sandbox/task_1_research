@@ -84,8 +84,7 @@ To ensure I provide the most relevant and comprehensive research, I'd like to cl
 Please share your research topic and any specific requirements you have."""
         
         # Interrupt to get user input
-        print("\n" + initial_prompt)
-        user_response = interrupt({"query": "Please provide your research topic and requirements"})
+        user_response = interrupt({"query": initial_prompt})
         
         # Add the interaction to messages
         return {
@@ -395,6 +394,7 @@ if __name__ == "__main__":
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
+
 
 
 
