@@ -209,65 +209,130 @@ Research Objectives:
 def research_node(state: ResearchState) -> dict:
     """
     Phase 2: ReAct agent for research using Tavily search
+    Uses create_react_agent() which internally handles ToolNode and tools_condition
     """
     research_brief = state.get("research_brief", "")
     messages = state.get("messages", [])
     
-    # Initialize the research agent with Tavily search tool
-    tavily_tool = TavilySearch(max_results=3)
+    # Initialize the Tavily search tool with more results for comprehensive research
+    tavily_tool = TavilySearch(
+        max_results=5,  # Increased for more comprehensive results
+        name="tavily_search",
+        description="Search the web for current information on any topic"
+    )
     
     # Use Anthropic model (you can change to OpenAI or other providers)
-    model = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.7)
+    model = ChatAnthropic(
+        model="claude-3-5-sonnet-20241022",
+        temperature=0.7,
+        max_tokens=4000  # Allow for longer responses
+    )
     
-    # Create the system prompt for the research agent
-    system_prompt = f"""You are a deep research assistant. Your task is to conduct thorough research based on the following brief and generate a comprehensive report.
+    # Create a comprehensive system prompt for the research agent
+    system_prompt = f"""You are an expert deep research assistant specializing in comprehensive analysis and report generation.
 
-Research Brief:
+RESEARCH BRIEF:
 {research_brief}
 
-Guidelines for your research:
-1. Search for current and relevant information using the Tavily search tool
-2. Gather data from multiple sources to ensure comprehensive coverage
-3. Synthesize findings into a coherent, well-structured report
-4. Include specific examples, data points, and evidence
-5. Provide actionable insights and recommendations when applicable
-6. Organize the report with clear sections and headings
+YOUR MISSION:
+Conduct thorough, multi-faceted research and produce a detailed, professional report.
 
-Use the search tool multiple times if needed to gather comprehensive information, then create a detailed research report."""
+RESEARCH METHODOLOGY:
+1. **Information Gathering Phase**:
+   - Use the Tavily search tool multiple times (at least 2-3 searches) with different query angles
+   - Search for recent data, statistics, expert opinions, and case studies
+   - Look for contrasting viewpoints and comprehensive coverage
+
+2. **Analysis Phase**:
+   - Synthesize information from multiple sources
+   - Identify patterns, trends, and key insights
+   - Evaluate the credibility and relevance of sources
+
+3. **Report Generation Phase**:
+   - Structure findings in a clear, logical format
+   - Include specific data points, examples, and evidence
+   - Provide actionable recommendations
+
+REPORT STRUCTURE REQUIREMENTS:
+- **Executive Summary**: Brief overview of key findings
+- **Introduction**: Context and scope of research
+- **Main Findings**: Detailed analysis organized by themes/topics
+- **Data & Evidence**: Specific statistics, quotes, and examples
+- **Insights & Analysis**: Your expert interpretation of the findings
+- **Recommendations**: Actionable next steps based on research
+- **Conclusion**: Summary of most important points
+- **Sources**: Key references used
+
+QUALITY STANDARDS:
+- Be specific and detailed, not generic
+- Include recent and relevant information (prioritize last 2 years)
+- Cite specific sources when possible
+- Balance comprehensiveness with clarity
+- Focus on practical, actionable insights"""
     
     # Create the ReAct agent with the search tool
+    # create_react_agent internally uses ToolNode for tool execution and tools_condition for routing
     research_agent = create_react_agent(
         model=model,
         tools=[tavily_tool],
-        prompt=system_prompt
+        prompt=system_prompt,
+        # The agent will automatically handle tool calling and routing
     )
     
-    # Prepare the research query message
-    research_query = f"Please conduct thorough research based on this brief and create a detailed report:\n\n{research_brief}"
+    # Prepare a detailed research query message
+    research_query = f"""Based on the research brief provided, please conduct comprehensive research using the Tavily search tool.
+
+Make multiple searches from different angles to ensure thorough coverage:
+1. First, search for general information and current state
+2. Then, search for specific data, statistics, or case studies
+3. Finally, search for expert opinions, best practices, or future trends
+
+After gathering sufficient information, synthesize your findings into a detailed, well-structured report following the format specified in your instructions.
+
+Research Brief to investigate:
+{research_brief}
+
+Begin your research now."""
     
     # Run the research agent
-    research_result = research_agent.invoke({
-        "messages": [HumanMessage(content=research_query)]
-    })
-    
-    # Extract the final report from the agent's response
-    final_messages = research_result.get("messages", [])
-    final_report = ""
-    
-    if final_messages:
-        # Get the last AI message which should contain the research report
-        for msg in reversed(final_messages):
-            if isinstance(msg, AIMessage) and not msg.tool_calls:
-                final_report = msg.content
-                break
+    try:
+        research_result = research_agent.invoke({
+            "messages": [HumanMessage(content=research_query)]
+        })
         
-        if not final_report:
-            final_report = "Research completed but no final report was generated."
-    else:
-        final_report = "No research results were generated."
+        # Extract the final report from the agent's response
+        final_messages = research_result.get("messages", [])
+        final_report = ""
+        
+        if final_messages:
+            # Get the last AI message which should contain the research report
+            for msg in reversed(final_messages):
+                if isinstance(msg, AIMessage) and not msg.tool_calls:
+                    final_report = msg.content
+                    break
+            
+            if not final_report:
+                # Fallback: compile all non-tool messages
+                report_parts = []
+                for msg in final_messages:
+                    if isinstance(msg, AIMessage) and not msg.tool_calls:
+                        report_parts.append(msg.content)
+                final_report = "\n\n".join(report_parts) if report_parts else "Research completed but no final report was generated."
+        else:
+            final_report = "No research results were generated."
+            
+    except Exception as e:
+        final_report = f"An error occurred during research: {str(e)}\n\nPlease try again or refine your research request."
     
-    # Add the research results to the conversation
-    messages.append(AIMessage(content=f"## Research Complete\n\nHere's my detailed report:\n\n{final_report}"))
+    # Add the research results to the conversation with formatting
+    report_message = f"""## 📊 Research Complete
+
+{final_report}
+
+---
+*This report was generated based on the research brief developed during our clarification conversation.*"""
+    
+    messages.append(AIMessage(content=report_message))
     
     return {
         "messages": messages,
@@ -364,6 +429,7 @@ if __name__ == "__main__":
     # Or import and use in another script:
     # from agent import app
     # result = app.invoke({"messages": [HumanMessage("I need research help")]}, config)
+
 
 
 
