@@ -40,8 +40,9 @@ def clarification_node(state: ResearchState) -> dict:
 
     # If this is the first interaction, provide initial guidance
     if len(messages) <= 1:
-        initial_prompt = """I'm a deep research agent designed to help you conduct thorough research on any topic.
-        
+        initial_prompt = """I'm a deep research agent designed to help you conduct thorough
+research on any topic.
+
 To provide you with the most comprehensive and relevant research, I need to understand:
 1. What specific topic or question you want to research
 2. The scope and depth of research needed
@@ -304,3 +305,4 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
