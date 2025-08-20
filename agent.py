@@ -398,6 +398,34 @@ This research provides a foundation for understanding the topic. For the most cu
 """
 
 
+def routing_node(state: ResearchState) -> str:
+    """
+    Conditional routing node that determines the next step in the workflow
+    based on user_confirmed and phase state fields.
+    
+    Routing Logic:
+    - If user_confirmed=True and phase='research': go to research_node
+    - If user_confirmed=False or phase='scoping': continue with scoping_node
+    - If phase='completed': end the workflow
+    
+    Args:
+        state: Current research state
+        
+    Returns:
+        String indicating the next node to execute
+    """
+    # Check if user has confirmed and is ready for research
+    if state.get("user_confirmed", False) and state.get("phase") == "research":
+        return "research_node"
+    
+    # Check if research is already completed
+    if state.get("phase") == "completed":
+        return "END"
+    
+    # Default: continue with scoping if user hasn't confirmed or still in scoping phase
+    return "scoping_node"
+
+
 # Create the StateGraph with our custom ResearchState schema
 graph_builder = StateGraph(ResearchState)
 
@@ -572,6 +600,7 @@ if __name__ == "__main__":
         print("✅ ReAct research node with Tavily search implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
