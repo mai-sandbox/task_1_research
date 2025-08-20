@@ -1,0 +1,16 @@
+# Core LangGraph and LangChain dependencies
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-core>=0.3.0
+
+# LLM provider - OpenAI
+langchain-openai>=0.2.0
+
+# Search tool - Tavily
+langchain-tavily>=0.0.3
+
+# Type hints and utilities
+typing-extensions>=4.8.0
+
+# Additional dependencies for async and environment management
+python-dotenv>=1.0.0
