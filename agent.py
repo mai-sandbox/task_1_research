@@ -6,7 +6,7 @@ This agent operates in two stages:
 2. ReAct Research: Uses Tavily search to conduct research and generate report
 """
 
-from typing import Annotated, Literal, TypedDict
+from typing import Annotated, Literal, TypedDict, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_anthropic import ChatAnthropic
 from langchain_tavily import TavilySearchResults
@@ -14,7 +14,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.types import interrupt, Command
+from langgraph.types import interrupt
 import os
 
 
@@ -25,6 +25,7 @@ class ResearchState(TypedDict):
     research_scope: str
     phase: Literal["scoping", "researching", "complete"]
     scope_confirmed: bool
+    scoping_iterations: int  # Track number of scoping interactions
 
 
 def scoping_agent(state: ResearchState) -> dict:
@@ -305,3 +306,4 @@ if __name__ == "__main__":
             if hasattr(last_message, 'content'):
                 print("\nFinal Report:")
                 print(last_message.content)
+
