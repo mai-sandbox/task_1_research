@@ -769,6 +769,23 @@ def _validate_research_scope(research_scope: dict) -> bool:
     return True
 
 
+def _check_research_completion(state: AgentState) -> str:
+    """
+    Check if research has been completed successfully and determine next routing.
+    Ensures proper state management after research phase.
+    """
+    research_complete = state.get("research_complete", False)
+    final_report = state.get("final_report")
+    
+    # If research completed successfully with a report, end the workflow
+    if research_complete and final_report:
+        return "complete"
+    
+    # If research failed or incomplete, return to clarification for retry
+    # This allows users to modify their scope and try again
+    return "retry"
+
+
 def create_research_workflow():
     """
     Create and compile the LangGraph workflow with enhanced conditional routing
@@ -822,6 +839,7 @@ if __name__ == "__main__":
     print("Research Agent initialized. Use the 'app' variable to invoke the agent.")
     print("Example:")
     print("result = app.invoke({'messages': [HumanMessage('I want to research artificial intelligence')]})")
+
 
 
 
