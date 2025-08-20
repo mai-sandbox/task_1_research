@@ -438,23 +438,18 @@ graph_builder.add_node("scoping_node", interactive_scoping_node)
 # Add the ReAct research node
 graph_builder.add_node("research_node", create_research_node)
 
-# Add the routing node for conditional logic
-graph_builder.add_node("routing_node", routing_node)
-
-# Connect START to the initialization node
+# Connect START to the initialization node (as specified in task)
 graph_builder.add_edge(START, "initialize_state")
 
 # Connect initialization to scoping node (as specified in task)
 graph_builder.add_edge("initialize_state", "scoping_node")
 
-# Connect scoping node to routing node (as specified in task)
-graph_builder.add_edge("scoping_node", "routing_node")
-
-# Add conditional edges from routing node (as specified in task)
-# routing_node -> [scoping_node OR research_node]
+# Add conditional edges from scoping node (as specified in task)
+# scoping_node -> routing_node -> [scoping_node OR research_node]
+# We implement this as direct conditional routing from scoping_node
 graph_builder.add_conditional_edges(
-    "routing_node",
-    routing_node,
+    "scoping_node",
+    routing_logic,
     {
         "scoping_node": "scoping_node",
         "research_node": "research_node", 
@@ -682,6 +677,7 @@ if __name__ == "__main__":
         print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
