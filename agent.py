@@ -438,19 +438,31 @@ graph_builder.add_node("scoping_node", interactive_scoping_node)
 # Add the ReAct research node
 graph_builder.add_node("research_node", create_research_node)
 
+# Add the routing node for conditional logic
+graph_builder.add_node("routing_node", routing_node)
+
 # Connect START to the initialization node
 graph_builder.add_edge(START, "initialize_state")
 
-# Connect initialization to scoping node
+# Connect initialization to scoping node (as specified in task)
 graph_builder.add_edge("initialize_state", "scoping_node")
 
-# Placeholder connections for future nodes
-# These will be implemented in subsequent tasks:
-# - routing_node: Conditional logic to determine workflow progression
+# Connect scoping node to routing node (as specified in task)
+graph_builder.add_edge("scoping_node", "routing_node")
 
-# Temporary connections (will be updated when routing node is added)
-# For now, scoping goes directly to research for testing
-graph_builder.add_edge("scoping_node", "research_node")
+# Add conditional edges from routing node (as specified in task)
+# routing_node -> [scoping_node OR research_node]
+graph_builder.add_conditional_edges(
+    "routing_node",
+    routing_node,
+    {
+        "scoping_node": "scoping_node",
+        "research_node": "research_node", 
+        "END": END
+    }
+)
+
+# Connect research node to END (as specified in task)
 graph_builder.add_edge("research_node", END)
 
 # Compile the graph and export as 'app' for deployment
@@ -600,6 +612,7 @@ if __name__ == "__main__":
         print("✅ ReAct research node with Tavily search implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
