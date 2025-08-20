@@ -232,7 +232,7 @@ def format_output(state: ResearchState) -> dict:
     final_report = state.get("final_report", "")
     
     if final_report:
-        output_message = f"\n{'='*80}\n📊 RESEARCH REPORT\n{'='*80}\n\n{final_report}\n\n{'='*80}"
+        output_message = f"\n{'=' * 80}\n📊 RESEARCH REPORT\n{'=' * 80}\n\n{final_report}\n\n{'=' * 80}"
         return {
             "messages": [AIMessage(content=output_message)]
         }
@@ -329,4 +329,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         sys.exit(1)
+
 
