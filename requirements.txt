@@ -1,0 +1,19 @@
+# Core LangGraph framework
+langgraph>=0.2.0
+
+# Tavily search integration
+langchain-tavily>=0.1.0
+
+# LangChain core components
+langchain-core>=0.3.0
+langchain>=0.3.0
+
+# LLM integrations (supporting multiple providers)
+langchain-anthropic>=0.2.0
+langchain-openai>=0.2.0
+
+# Type hints support
+typing-extensions>=4.8.0
+
+# Additional utilities
+python-dotenv>=1.0.0  # For environment variable management
