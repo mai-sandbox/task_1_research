@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "name": "Deep Research Agent",
+  "description": "A two-phase research agent that clarifies scope then conducts deep research using Tavily",
+  "entry_point": "agent:app",
+  "requirements": [
+    "langchain",
+    "langchain-openai",
+    "langchain-community",
+    "langgraph",
+    "tavily-python"
+  ],
+  "env": {
+    "OPENAI_API_KEY": "",
+    "TAVILY_API_KEY": ""
+  },
+  "config": {
+    "configurable": {
+      "thread_id": {
+        "type": "string",
+        "description": "Thread ID for conversation memory"
+      }
+    }
+  }
+}
