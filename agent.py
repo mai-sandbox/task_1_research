@@ -20,6 +20,88 @@ from langgraph.checkpoint.memory import MemorySaver
 import json
 
 
+# Custom Tavily tools to match task requirements
+@tool
+def TavilySearch(query: str) -> str:
+    """
+    Search the web using Tavily API for comprehensive information.
+    
+    Args:
+        query: The search query to execute
+        
+    Returns:
+        Search results with relevant information
+    """
+    try:
+        client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        response = client.search(query, max_results=10)
+        
+        # Format results for better readability
+        results = []
+        for result in response.get('results', []):
+            results.append({
+                'title': result.get('title', ''),
+                'content': result.get('content', ''),
+                'url': result.get('url', ''),
+                'score': result.get('score', 0)
+            })
+        
+        return json.dumps(results, indent=2)
+    except Exception as e:
+        return f"Error performing search: {str(e)}"
+
+
+@tool
+def TavilyExtract(url: str) -> str:
+    """
+    Extract content from a specific URL using Tavily API.
+    
+    Args:
+        url: The URL to extract content from
+        
+    Returns:
+        Extracted content from the URL
+    """
+    try:
+        client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        response = client.extract(url)
+        
+        return json.dumps({
+            'url': url,
+            'content': response.get('content', ''),
+            'title': response.get('title', ''),
+            'extracted_at': response.get('extracted_at', '')
+        }, indent=2)
+    except Exception as e:
+        return f"Error extracting content from {url}: {str(e)}"
+
+
+@tool
+def TavilyCrawl(url: str, instructions: str = "Extract all relevant information") -> str:
+    """
+    Crawl a website starting from a URL using Tavily API.
+    
+    Args:
+        url: The starting URL to crawl
+        instructions: Instructions for what to look for during crawling
+        
+    Returns:
+        Crawled content and information
+    """
+    try:
+        client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        response = client.crawl(url, instructions=instructions)
+        
+        return json.dumps({
+            'starting_url': url,
+            'instructions': instructions,
+            'results': response.get('results', []),
+            'crawled_at': response.get('crawled_at', '')
+        }, indent=2)
+    except Exception as e:
+        return f"Error crawling {url}: {str(e)}"
+
+
 class ResearchScope(TypedDict):
     """Structured research parameters"""
     topic: str
@@ -319,5 +401,6 @@ if __name__ == "__main__":
     print("Research Agent initialized. Use the 'app' variable to invoke the agent.")
     print("Example:")
     print("result = app.invoke({'messages': [HumanMessage('I want to research artificial intelligence')]})")
+
 
 
