@@ -44,6 +44,17 @@ def get_llm():
         )
 
 
+def format_messages_for_analysis(messages: List[BaseMessage]) -> str:
+    """Format messages for analysis by the LLM"""
+    formatted = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            formatted.append(f"User: {msg.content}")
+        elif isinstance(msg, AIMessage):
+            formatted.append(f"Assistant: {msg.content}")
+    return "\n".join(formatted)
+
+
 def clarification_agent(state: ResearchState) -> Dict[str, Any]:
     """
     Clarification agent node that interacts with user to clarify research scope.
@@ -396,6 +407,7 @@ if __name__ == "__main__":
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
+
 
 
 
