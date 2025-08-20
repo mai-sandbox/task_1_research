@@ -140,7 +140,7 @@ def research_node(state: ResearchState) -> dict:
 
     # Create a ReAct agent with the search tool
     research_agent = create_react_agent(
-        model=ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3),
+        model=ChatAnthropic(model_name="claude-3-5-sonnet-20241022", temperature=0.3),
         tools=[tavily_tool],
         prompt="""You are an expert research agent with access to web search capabilities.
 
@@ -307,4 +307,5 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
 
