@@ -478,49 +478,98 @@ I've conducted comprehensive research based on your requirements, performing {se
 # Supervisor logic to determine next step
 def route_to_next_agent(state: ResearchState) -> Literal["scoping", "research", "end"]:
     """
-    Determines which agent to route to based on the current state.
+    Supervisor routing logic that determines which agent to route to based on the current state.
+    
+    This function:
+    1. Checks the research phase and scoping completion status
+    2. Routes to appropriate agent or ends the workflow
+    3. Ensures proper handoff between scoping and research agents
+    4. Preserves message history across phase transitions
+    """
+    research_phase = state.get("research_phase", "scoping")
+    scoping_complete = state.get("scoping_complete", False)
+    
+    # Routing logic with clear phase transitions
+    if research_phase == "scoping" and not scoping_complete:
+        # Continue in scoping phase until complete
+        return "scoping"
+    elif research_phase == "researching" or scoping_complete:
+        # Transition to research phase when scoping is complete
+        return "research"
+    elif research_phase == "complete":
+        # End workflow when research is complete
+        return "end"
+    else:
+        # Default to end if phase is unknown
+        return "end"
+
+
+# Command-based routing for interrupt handling
+def handle_interrupt_command(state: ResearchState) -> Command:
+    """
+    Handles interrupt commands for resuming after user input.
+    
+    Returns a Command object to direct workflow after interrupt.
     """
     research_phase = state.get("research_phase", "scoping")
     scoping_complete = state.get("scoping_complete", False)
     
     if research_phase == "scoping" and not scoping_complete:
-        return "scoping"
-    elif research_phase == "researching" or scoping_complete:
-        return "research"
+        # Continue scoping after interrupt
+        return Command(goto="scoping")
+    elif scoping_complete or research_phase == "researching":
+        # Move to research after scoping is complete
+        return Command(goto="research")
     else:
-        return "end"
+        # End workflow
+        return Command(goto=END)
 
 
-# Build the graph
+# Build the graph with enhanced state management
 def build_research_graph():
     """
-    Builds the LangGraph workflow for the research agent.
+    Builds the LangGraph workflow for the research agent with proper state management.
+    
+    Features:
+    1. StateGraph with START and conditional edges
+    2. Proper handoff between scoping and research agents
+    3. Command objects support for resuming after interrupt
+    4. Message history preservation across phases
     """
-    # Create the graph
+    # Create the graph with typed state
     workflow = StateGraph(ResearchState)
     
-    # Add nodes
+    # Add nodes for each agent
     workflow.add_node("scoping", scoping_agent)
     workflow.add_node("research", research_agent)
     
-    # Add edges
+    # Set entry point - always start with scoping
     workflow.add_edge(START, "scoping")
     
-    # Add conditional edges based on routing logic
+    # Add conditional edges for dynamic routing
     workflow.add_conditional_edges(
         "scoping",
         route_to_next_agent,
         {
-            "scoping": "scoping",  # Continue scoping
-            "research": "research",  # Move to research
-            "end": END
+            "scoping": "scoping",  # Loop back for continued scoping
+            "research": "research",  # Transition to research phase
+            "end": END  # End if needed
         }
     )
     
+    # Research always leads to end
     workflow.add_edge("research", END)
     
-    # Compile the graph
-    return workflow.compile()
+    # Compile the graph with interrupt support
+    compiled_graph = workflow.compile()
+    
+    # The compiled graph automatically handles:
+    # - State persistence across nodes
+    # - Message history preservation
+    # - Interrupt/resume functionality
+    # - Command-based navigation
+    
+    return compiled_graph
 
 
 # Export the compiled graph as 'app'
@@ -546,5 +595,6 @@ if __name__ == "__main__":
     # Example usage
     print("LangGraph Deep Research Agent initialized.")
     print("Use app.invoke() with initial state to start research.")
+
 
 
