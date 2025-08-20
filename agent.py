@@ -144,6 +144,7 @@ def research_agent_node(state: ResearchState) -> dict:
     Research agent that uses ReAct pattern with Tavily search to conduct research.
     """
     research_scope = state.get("research_scope", "")
+    messages = state.get("messages", [])
     
     if not research_scope:
         return {
@@ -158,49 +159,91 @@ def research_agent_node(state: ResearchState) -> dict:
         include_answer=True,
         include_raw_content=False,
         include_images=False,
+        name="tavily_search"
     )
     
     # Create the ReAct agent with Tavily search
     llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3)
     
-    # Create a research prompt that incorporates the scope
-    research_prompt = f"""You are a deep research agent. Your research scope is:
+    # Create a comprehensive research prompt
+    research_prompt = f"""You are a deep research agent conducting comprehensive research based on the following scope:
 
 {research_scope}
 
 Instructions:
-1. Use the Tavily search tool to gather comprehensive information
-2. Search for multiple aspects of the topic
-3. Verify information from multiple sources when possible
-4. Synthesize findings into a detailed, well-structured report
-5. Include citations and sources
-6. Highlight key findings and insights
-7. Address all aspects mentioned in the research scope
+1. Use the tavily_search tool multiple times to gather comprehensive information
+2. Search for different aspects and angles of the topic
+3. Look for recent data, statistics, expert opinions, and multiple perspectives
+4. Verify important information from multiple sources when possible
+5. After gathering sufficient information, synthesize your findings into a detailed report
 
-Generate a thorough research report based on your findings."""
+Your final report should include:
+- Executive Summary
+- Key Findings (with bullet points)
+- Detailed Analysis
+- Data and Statistics (if relevant)
+- Different Perspectives or Viewpoints
+- Conclusions and Insights
+- Sources and References
+
+Be thorough but concise. Focus on providing valuable, actionable insights."""
     
-    # Create the ReAct agent
+    # Create the ReAct agent with proper configuration
     react_agent = create_react_agent(
         model=llm,
         tools=[tavily_tool],
-        state_schema=ResearchState,
+        prompt=research_prompt,
+        name="research_agent"
     )
     
-    # Invoke the ReAct agent with the research prompt
+    # Prepare input for the ReAct agent
     research_input = {
-        "messages": [SystemMessage(content=research_prompt), HumanMessage(content=f"Please research: {research_scope}")]
+        "messages": [HumanMessage(content=f"Please conduct comprehensive research based on this scope: {research_scope}")]
     }
     
-    # Run the ReAct agent
-    result = react_agent.invoke(research_input)
-    
-    # Extract the final report from the agent's messages
-    final_message = result["messages"][-1] if result.get("messages") else AIMessage(content="Research completed but no results found.")
-    
-    return {
-        "messages": [final_message],
-        "phase": "complete"
-    }
+    try:
+        # Run the ReAct agent
+        result = react_agent.invoke(research_input)
+        
+        # Extract the final report from the agent's messages
+        if result.get("messages"):
+            # Get the last AI message which should contain the final report
+            final_message = None
+            for msg in reversed(result["messages"]):
+                if isinstance(msg, AIMessage) and not hasattr(msg, 'tool_calls'):
+                    final_message = msg
+                    break
+            
+            if not final_message:
+                final_message = result["messages"][-1]
+            
+            # Add a header to the report
+            report_content = f"""
+# Research Report
+
+## Research Scope
+{research_scope}
+
+---
+
+{final_message.content if hasattr(final_message, 'content') else str(final_message)}
+"""
+            
+            return {
+                "messages": [AIMessage(content=report_content)],
+                "phase": "complete"
+            }
+        else:
+            return {
+                "messages": [AIMessage(content="Research completed but no results were generated.")],
+                "phase": "complete"
+            }
+    except Exception as e:
+        error_message = f"An error occurred during research: {str(e)}"
+        return {
+            "messages": [AIMessage(content=error_message)],
+            "phase": "complete"
+        }
 
 
 def route_phase(state: ResearchState) -> Literal["scoping", "research", "end"]:
@@ -332,5 +375,6 @@ if __name__ == "__main__":
             if hasattr(last_message, 'content'):
                 print("\nFinal Report:")
                 print(last_message.content)
+
 
 
