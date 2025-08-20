@@ -671,13 +671,18 @@ if __name__ == "__main__":
     # Test 3: ReAct research node functionality
     research_test_passed = test_react_research_node()
     
-    if test_result and scoping_test_passed and research_test_passed:
-        print("\n🎉 All tests passed! ReAct research node is ready.")
+    # Test 4: Conditional routing logic functionality
+    routing_test_passed = test_routing_logic()
+    
+    if test_result and scoping_test_passed and research_test_passed and routing_test_passed:
+        print("\n🎉 All tests passed! Conditional routing logic is ready.")
         print("✅ State schema works correctly")
         print("✅ Interactive scoping node implemented")
         print("✅ ReAct research node with Tavily search implemented")
+        print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
