@@ -672,7 +672,7 @@ def _create_research_plan(research_scope: dict) -> str:
 {chr(10).join(source_strategies) if source_strategies else "• Use all available source types"}
 
 **Timeline Strategy:**
-• {timeline_strategies.get(timeline, timeline_strategies['recent'])}
+• {timeline_strategy}
 
 **Focus Strategy:**
 • {focus_strategy}
@@ -766,6 +766,7 @@ if __name__ == "__main__":
     print("Research Agent initialized. Use the 'app' variable to invoke the agent.")
     print("Example:")
     print("result = app.invoke({'messages': [HumanMessage('I want to research artificial intelligence')]})")
+
 
 
 
