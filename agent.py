@@ -7,8 +7,7 @@ This agent operates in two phases:
 """
 
 import os
-from typing import Annotated, TypedDict, Literal, List, Dict, Any
-from typing_extensions import TypedDict
+from typing import Annotated, TypedDict, Literal, List, Dict, Any, Optional
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -24,9 +23,10 @@ from langgraph.types import interrupt
 class ResearchState(TypedDict):
     """State schema for the research agent workflow"""
     messages: Annotated[List[BaseMessage], add_messages]
-    research_brief: str
+    research_brief: Optional[str]
     research_complete: bool
-    final_report: str
+    final_report: Optional[str]
+    clarification_phase: bool
 
 
 def get_llm():
@@ -365,4 +365,5 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nError: {e}")
+
 
