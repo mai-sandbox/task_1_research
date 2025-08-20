@@ -307,5 +307,3 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
-
-
