@@ -637,7 +637,7 @@ def test_routing_logic():
             "user_confirmed": True
         }
         
-        routing_result = routing_node(edge_case_state)
+        routing_result = routing_logic(edge_case_state)
         assert routing_result == "scoping_node", f"Expected 'scoping_node', got '{routing_result}'"
         print("✅ Edge case routing test passed")
         
@@ -677,6 +677,7 @@ if __name__ == "__main__":
         print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
