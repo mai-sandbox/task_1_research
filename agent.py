@@ -51,9 +51,17 @@ def clarification_agent(state: ResearchState) -> Dict[str, Any]:
     """
     messages = state.get("messages", [])
     research_brief = state.get("research_brief", "")
+    clarification_complete = state.get("clarification_complete", False)
     
-    # If this is the first interaction, provide initial greeting
-    if not messages or len(messages) == 1:
+    # If clarification is already complete, pass through
+    if clarification_complete:
+        return {}
+    
+    # Get the LLM
+    llm = get_llm()
+    
+    # If this is the first interaction or we only have the initial user message
+    if len(messages) <= 1:
         initial_prompt = """Hello! I'm your research assistant. I'll help you conduct thorough research on any topic.
 
 To ensure I provide the most relevant and comprehensive research, I'd like to clarify a few things about your research needs:
@@ -66,22 +74,18 @@ To ensure I provide the most relevant and comprehensive research, I'd like to cl
 Please share your research topic and any specific requirements you have."""
         
         # Interrupt to get user input
-        user_response = interrupt({
-            "message": initial_prompt,
-            "type": "clarification_request"
-        })
+        print("\n" + initial_prompt)
+        user_response = interrupt({"query": "Please provide your research topic and requirements"})
         
         # Add the interaction to messages
         return {
             "messages": [
                 AIMessage(content=initial_prompt),
-                HumanMessage(content=user_response["response"])
+                HumanMessage(content=user_response["data"])
             ]
         }
     
     # Analyze the conversation to determine if we have enough information
-    llm = get_llm()
-    
     # Check if we have enough information to proceed
     analysis_prompt = f"""Based on the following conversation, determine if we have enough information to create a comprehensive research brief.
 
@@ -125,26 +129,24 @@ I'll now proceed with conducting comprehensive research on this topic. This will
 Type 'yes' to proceed with this research brief, or provide any modifications you'd like me to make."""
         
         # Get final confirmation
-        user_confirmation = interrupt({
-            "message": confirmation_message,
-            "type": "confirmation_request"
-        })
+        print("\n" + confirmation_message)
+        user_confirmation = interrupt({"query": "Confirm to proceed or provide modifications"})
         
-        if user_confirmation["response"].lower().strip() in ["yes", "y", "proceed", "go ahead", "continue"]:
+        if user_confirmation["data"].lower().strip() in ["yes", "y", "proceed", "go ahead", "continue"]:
             return {
                 "messages": [
                     AIMessage(content=confirmation_message),
-                    HumanMessage(content=user_confirmation["response"])
+                    HumanMessage(content=user_confirmation["data"])
                 ],
                 "research_brief": content,
-                "research_complete": False
+                "clarification_complete": True
             }
         else:
             # User wants modifications
             return {
                 "messages": [
                     AIMessage(content=confirmation_message),
-                    HumanMessage(content=user_confirmation["response"])
+                    HumanMessage(content=user_confirmation["data"])
                 ]
             }
     else:
@@ -152,15 +154,13 @@ Type 'yes' to proceed with this research brief, or provide any modifications you
         clarification_request = content if content else "Could you provide more details about your research needs?"
         
         # Interrupt to get more information
-        user_response = interrupt({
-            "message": clarification_request,
-            "type": "clarification_request"
-        })
+        print("\n" + clarification_request)
+        user_response = interrupt({"query": "Please provide additional information"})
         
         return {
             "messages": [
                 AIMessage(content=clarification_request),
-                HumanMessage(content=user_response["response"])
+                HumanMessage(content=user_response["data"])
             ]
         }
 
@@ -366,6 +366,7 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nError: {e}")
+
 
 
 
