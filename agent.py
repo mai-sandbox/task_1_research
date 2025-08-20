@@ -78,10 +78,11 @@ Let's start by discussing your research needs. What would you like me to researc
     # Check if the LLM thinks we have enough information
     if "RESEARCH_BRIEF_READY:" in response.content:
         # Extract the research brief
-        brief_start = response.content.index("RESEARCH_BRIEF_READY:") + len(
+        content = str(response.content)  # Ensure content is a string
+        brief_start = content.index("RESEARCH_BRIEF_READY:") + len(
             "RESEARCH_BRIEF_READY:"
         )
-        research_brief = response.content[brief_start:].strip()
+        research_brief = content[brief_start:].strip()
 
         # Confirm with the user
         confirmation_message = f"""I've prepared the following research brief based on our
@@ -307,5 +308,6 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
 
 
