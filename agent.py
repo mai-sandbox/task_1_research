@@ -33,7 +33,6 @@ def clarification_node(state: ResearchState) -> dict:
     Uses interrupt() to pause execution and collect user input.
     """
     messages = state.get("messages", [])
-    clarification_complete = state.get("clarification_complete", False)
     
     # Initialize the LLM for clarification
     llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3)
@@ -296,4 +295,5 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
 
