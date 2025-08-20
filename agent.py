@@ -162,8 +162,7 @@ Type 'yes' to proceed with this research brief, or provide any modifications you
         clarification_request = content if content else "Could you provide more details about your research needs?"
         
         # Interrupt to get more information
-        print("\n" + clarification_request)
-        user_response = interrupt({"query": "Please provide additional information"})
+        user_response = interrupt({"query": clarification_request})
         
         return {
             "messages": [
@@ -393,6 +392,7 @@ if __name__ == "__main__":
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
+
 
 
 
