@@ -84,11 +84,12 @@ Let's start by discussing your research needs. What would you like me to researc
         research_brief = response.content[brief_start:].strip()
 
         # Confirm with the user
-        confirmation_message = f"""I've prepared the following research brief based on our discussion:
+        confirmation_message = f"""I've prepared the following research brief based on our
+discussion:
 
 {research_brief}
 
-Would you like me to proceed with this research, or would you like to modify anything? 
+Would you like me to proceed with this research, or would you like to modify anything?
 (Type 'proceed' to continue, or provide any modifications)"""
 
         user_confirmation = interrupt(confirmation_message)
@@ -306,5 +307,6 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
 
 
