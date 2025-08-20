@@ -152,26 +152,31 @@ def research_node(state: ResearchState) -> dict:
     # Use Anthropic model (you can change to OpenAI or other providers)
     model = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.7)
     
+    # Create the system prompt for the research agent
+    system_prompt = f"""You are a deep research assistant. Your task is to conduct thorough research based on the following brief and generate a comprehensive report.
+
+Research Brief:
+{research_brief}
+
+Guidelines for your research:
+1. Search for current and relevant information using the Tavily search tool
+2. Gather data from multiple sources to ensure comprehensive coverage
+3. Synthesize findings into a coherent, well-structured report
+4. Include specific examples, data points, and evidence
+5. Provide actionable insights and recommendations when applicable
+6. Organize the report with clear sections and headings
+
+Use the search tool multiple times if needed to gather comprehensive information, then create a detailed research report."""
+    
     # Create the ReAct agent with the search tool
     research_agent = create_react_agent(
         model=model,
         tools=[tavily_tool],
-        prompt=f"""You are a deep research assistant. Your task is to conduct thorough research based on the following brief and generate a comprehensive report.
-
-{research_brief}
-
-Guidelines for your research:
-1. Search for current and relevant information
-2. Gather data from multiple sources
-3. Synthesize findings into a coherent report
-4. Include specific examples and evidence
-5. Provide actionable insights when applicable
-
-Use the search tool to gather information, then create a detailed research report."""
+        prompt=system_prompt
     )
     
     # Prepare the research query message
-    research_query = f"Please conduct research based on this brief and create a detailed report:\n\n{research_brief}"
+    research_query = f"Please conduct thorough research based on this brief and create a detailed report:\n\n{research_brief}"
     
     # Run the research agent
     research_result = research_agent.invoke({
@@ -180,19 +185,22 @@ Use the search tool to gather information, then create a detailed research repor
     
     # Extract the final report from the agent's response
     final_messages = research_result.get("messages", [])
+    final_report = ""
+    
     if final_messages:
         # Get the last AI message which should contain the research report
         for msg in reversed(final_messages):
             if isinstance(msg, AIMessage) and not msg.tool_calls:
                 final_report = msg.content
                 break
-        else:
+        
+        if not final_report:
             final_report = "Research completed but no final report was generated."
     else:
         final_report = "No research results were generated."
     
     # Add the research results to the conversation
-    messages.append(AIMessage(content=f"Research Complete. Here's my detailed report:\n\n{final_report}"))
+    messages.append(AIMessage(content=f"## Research Complete\n\nHere's my detailed report:\n\n{final_report}"))
     
     return {
         "messages": messages,
@@ -289,5 +297,6 @@ if __name__ == "__main__":
     # Or import and use in another script:
     # from agent import app
     # result = app.invoke({"messages": [HumanMessage("I need research help")]}, config)
+
 
 
