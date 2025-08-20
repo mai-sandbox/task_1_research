@@ -9,7 +9,7 @@ This agent operates in two stages:
 from typing import Annotated, Literal, TypedDict, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_anthropic import ChatAnthropic
-from langchain_tavily import TavilySearchResults
+from langchain_tavily import TavilySearch
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import create_react_agent
@@ -412,6 +412,7 @@ if __name__ == "__main__":
         print(f"\nAn error occurred: {e}")
         import traceback
         traceback.print_exc()
+
 
 
 
