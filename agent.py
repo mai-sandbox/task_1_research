@@ -14,6 +14,7 @@ from typing_extensions import TypedDict
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
+from langgraph.types import interrupt
 from langchain_core.messages import HumanMessage, AIMessage
 
 
@@ -132,4 +133,5 @@ if __name__ == "__main__":
     # Run test when script is executed directly
     test_result = test_minimal_input()
     print(f"Test result: {test_result}")
+
 
