@@ -235,43 +235,71 @@ Starting the research phase now..."""
 # Research Agent Node with Tavily Tool
 def research_agent(state: ResearchState) -> Dict[str, Any]:
     """
-    ReAct research agent that uses Tavily search to conduct research
+    ReAct research agent that uses Tavily search to conduct comprehensive research
     based on the brief from the scoping phase.
+    
+    This agent:
+    1. Receives the structured research brief from scoping phase
+    2. Uses TavilySearch tool with max_results parameter for web research
+    3. Follows ReAct pattern (Reason-Act-Observe) to iteratively search and analyze
+    4. Generates comprehensive detailed report based on findings
+    5. Returns final report to user
     """
     research_brief = state.get("research_brief", "")
     messages = state.get("messages", [])
     
-    # Initialize Tavily search tool
+    # Initialize Tavily search tool with configurable max_results
     search_tool = TavilySearch(max_results=5)
     tools = [search_tool]
     
     # Create research LLM with tools
     research_llm = llm.bind_tools(tools)
     
-    # Create research prompt
-    research_prompt = SystemMessage(content=f"""You are a thorough research agent. Based on the following research brief, conduct comprehensive research using the search tool.
+    # Create enhanced research prompt with explicit ReAct pattern
+    research_prompt = SystemMessage(content=f"""You are an expert research agent following the ReAct (Reason-Act-Observe) pattern.
 
 RESEARCH BRIEF:
 {research_brief}
 
-INSTRUCTIONS:
-1. Break down the research into logical search queries
-2. Use the search tool to gather information
-3. Analyze and synthesize the findings
-4. Follow the ReAct pattern: Reason about what to search, Act by searching, Observe the results
-5. Continue until you have comprehensive coverage of the topic
-6. Generate a detailed, well-structured report
+YOUR TASK:
+Conduct thorough, comprehensive research based on the brief above using the Tavily search tool.
 
-Remember to:
-- Search for multiple perspectives
-- Verify important facts with multiple sources
-- Look for recent and authoritative information
-- Cover all aspects mentioned in the brief""")
+REACT PATTERN TO FOLLOW:
+For each research iteration:
+1. REASON: Think about what information you need and why
+2. ACT: Use the tavily_search tool with specific, well-crafted queries
+3. OBSERVE: Analyze the search results and determine what's still needed
+
+RESEARCH STRATEGY:
+1. Start with broad searches to understand the landscape
+2. Then dive deeper into specific aspects mentioned in the brief
+3. Look for:
+   - Current trends and recent developments
+   - Multiple perspectives and viewpoints
+   - Statistical data and concrete examples
+   - Expert opinions and authoritative sources
+   - Potential challenges or controversies
+   - Best practices and recommendations
+
+SEARCH GUIDELINES:
+- Craft specific, targeted search queries
+- Use different query formulations to find diverse sources
+- Search for recent information (add year if relevant)
+- Verify important claims with multiple sources
+- Look for both primary and secondary sources
+
+Continue researching until you have comprehensive coverage of all aspects in the brief.
+After each search, explicitly state your REASONING for the next step.""")
     
-    # Conduct research iterations
+    # Conduct research iterations with explicit ReAct pattern
     research_messages = [research_prompt]
-    max_iterations = 10
+    max_iterations = 15  # Increased for thorough research
     iteration = 0
+    search_count = 0
+    
+    # Track search queries and findings for better coverage
+    searched_queries = []
+    key_findings = []
     
     while iteration < max_iterations:
         # Get LLM response with potential tool calls
@@ -283,37 +311,165 @@ Remember to:
             # Execute tool calls
             for tool_call in response.tool_calls:
                 if tool_call["name"] == "tavily_search":
-                    search_results = search_tool.invoke(tool_call["args"])
-                    # Create tool message with results
-                    tool_message = AIMessage(
-                        content=f"Search results for '{tool_call['args'].get('query', '')}': {json.dumps(search_results, indent=2)}"
-                    )
-                    research_messages.append(tool_message)
+                    query = tool_call["args"].get("query", "")
+                    searched_queries.append(query)
+                    search_count += 1
+                    
+                    # Execute search
+                    try:
+                        search_results = search_tool.invoke(tool_call["args"])
+                        
+                        # Format results for better readability
+                        formatted_results = f"\n=== SEARCH #{search_count} ===\nQuery: '{query}'\n"
+                        
+                        if isinstance(search_results, list):
+                            formatted_results += f"Found {len(search_results)} results:\n"
+                            for idx, result in enumerate(search_results, 1):
+                                if isinstance(result, dict):
+                                    formatted_results += f"\n{idx}. {result.get('title', 'No title')}\n"
+                                    formatted_results += f"   URL: {result.get('url', 'No URL')}\n"
+                                    formatted_results += f"   Content: {result.get('content', 'No content')[:500]}...\n"
+                                else:
+                                    formatted_results += f"\n{idx}. {str(result)[:500]}...\n"
+                        else:
+                            formatted_results += f"Results: {json.dumps(search_results, indent=2)}\n"
+                        
+                        # Create tool message with results
+                        tool_message = ToolMessage(
+                            content=formatted_results,
+                            tool_call_id=tool_call.get("id", f"search_{search_count}")
+                        )
+                        research_messages.append(tool_message)
+                        
+                        # Track key findings
+                        if isinstance(search_results, list):
+                            for result in search_results[:3]:  # Top 3 results
+                                if isinstance(result, dict):
+                                    key_findings.append({
+                                        "query": query,
+                                        "title": result.get("title", ""),
+                                        "url": result.get("url", ""),
+                                        "snippet": result.get("content", "")[:200]
+                                    })
+                    
+                    except Exception as e:
+                        error_message = ToolMessage(
+                            content=f"Search error for query '{query}': {str(e)}",
+                            tool_call_id=tool_call.get("id", f"search_error_{search_count}")
+                        )
+                        research_messages.append(error_message)
         else:
-            # No more tool calls, research is complete
-            break
+            # Check if the agent has indicated completion
+            if response.content and any(phrase in response.content.lower() for phrase in 
+                ["research complete", "research is complete", "finished researching", 
+                 "comprehensive coverage", "all aspects covered"]):
+                break
+            
+            # If no tool calls and not complete, prompt for continuation
+            if iteration < 5:  # Minimum iterations for thorough research
+                continuation_prompt = AIMessage(content="""Please continue your research. Remember to:
+- Follow the ReAct pattern: REASON about what's needed, ACT with searches, OBSERVE results
+- Ensure you've covered all aspects mentioned in the research brief
+- Use the tavily_search tool to gather more information""")
+                research_messages.append(continuation_prompt)
+            else:
+                # Sufficient iterations done, can complete if no more searches needed
+                break
         
         iteration += 1
     
-    # Generate final comprehensive report
-    report_prompt = SystemMessage(content=f"""Based on all the research conducted, create a comprehensive, detailed report that addresses the research brief.
+    # Add summary of research process
+    research_summary = f"""
+=== RESEARCH PROCESS SUMMARY ===
+Total searches conducted: {search_count}
+Search queries used: {', '.join(searched_queries[:10])}{'...' if len(searched_queries) > 10 else ''}
+Key sources found: {len(key_findings)}
+Research iterations: {iteration}
+"""
+    research_messages.append(AIMessage(content=research_summary))
+    
+    # Generate final comprehensive report with enhanced structure
+    report_prompt = SystemMessage(content=f"""Based on all the research conducted, create a comprehensive, detailed report that fully addresses the research brief.
 
-RESEARCH BRIEF:
+RESEARCH BRIEF TO ADDRESS:
 {research_brief}
 
-Structure the report with:
-1. Executive Summary
-2. Key Findings (organized by topic/theme)
-3. Detailed Analysis
-4. Supporting Evidence and Sources
-5. Conclusions and Recommendations (if applicable)
+RESEARCH CONDUCTED:
+- {search_count} searches performed
+- {len(key_findings)} key sources identified
+- Queries covered: {', '.join(set(searched_queries)[:15])}
 
-Make it thorough, well-organized, and actionable.""")
+REPORT REQUIREMENTS:
+Create a thorough, professional report with the following structure:
+
+# COMPREHENSIVE RESEARCH REPORT
+
+## 1. EXECUTIVE SUMMARY
+- Brief overview of the research topic
+- Key findings at a glance
+- Main conclusions and recommendations
+
+## 2. RESEARCH METHODOLOGY
+- Search strategies employed
+- Sources consulted
+- Scope and limitations
+
+## 3. KEY FINDINGS
+Organize by the main themes/topics from the research brief:
+- Present findings with supporting evidence
+- Include relevant statistics, quotes, and examples
+- Cite sources with URLs where available
+
+## 4. DETAILED ANALYSIS
+For each major aspect in the research brief:
+- In-depth exploration of the topic
+- Multiple perspectives and viewpoints
+- Current trends and developments
+- Challenges and opportunities
+- Best practices and recommendations
+
+## 5. SUPPORTING EVIDENCE
+- Data and statistics
+- Expert opinions
+- Case studies or examples
+- Relevant quotes and citations
+
+## 6. CONCLUSIONS
+- Synthesis of key insights
+- Answers to the main research questions
+- Implications and significance
+
+## 7. RECOMMENDATIONS (if applicable)
+- Actionable next steps
+- Areas for further investigation
+- Strategic considerations
+
+## 8. SOURCES AND REFERENCES
+- List of all sources consulted
+- URLs for further reading
+
+Make the report:
+- Comprehensive and thorough
+- Well-organized and easy to navigate
+- Evidence-based with proper citations
+- Actionable and practical
+- Professional in tone and presentation""")
     
+    # Generate the final report
     final_report_response = llm.invoke(research_messages + [report_prompt])
     
+    # Create final message for user
+    completion_message = f"""✅ **Research Completed Successfully!**
+
+I've conducted comprehensive research based on your requirements, performing {search_count} targeted searches across multiple sources.
+
+{final_report_response.content}
+
+---
+*Research conducted using {search_count} Tavily searches across {iteration} iterations following the ReAct pattern.*"""
+    
     return {
-        "messages": messages + [AIMessage(content=f"Research completed! Here's your comprehensive report:\n\n{final_report_response.content}")],
+        "messages": [AIMessage(content=completion_message)],
         "final_report": final_report_response.content,
         "research_phase": "complete"
     }
@@ -390,4 +546,5 @@ if __name__ == "__main__":
     # Example usage
     print("LangGraph Deep Research Agent initialized.")
     print("Use app.invoke() with initial state to start research.")
+
 
