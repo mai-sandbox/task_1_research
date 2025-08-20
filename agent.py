@@ -98,7 +98,7 @@ Would you like me to proceed with this research, or would you like to modify any
             return {
                 "messages": [
                     AIMessage(
-                        content=f"Research brief confirmed. Proceeding with research..."
+                        content="Research brief confirmed. Proceeding with research..."
                     )
                 ],
                 "research_brief": research_brief,
@@ -307,6 +307,7 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
 
 
 
