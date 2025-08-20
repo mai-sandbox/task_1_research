@@ -138,8 +138,7 @@ I'll now proceed with conducting comprehensive research on this topic. This will
 Type 'yes' to proceed with this research brief, or provide any modifications you'd like me to make."""
         
         # Get final confirmation
-        print("\n" + confirmation_message)
-        user_confirmation = interrupt({"query": "Confirm to proceed or provide modifications"})
+        user_confirmation = interrupt({"query": confirmation_message})
         
         if user_confirmation["data"].lower().strip() in ["yes", "y", "proceed", "go ahead", "continue"]:
             return {
@@ -394,6 +393,7 @@ if __name__ == "__main__":
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
+
 
 
 
