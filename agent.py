@@ -76,6 +76,128 @@ def initialize_agent_state(state: ResearchState) -> ResearchState:
     return state
 
 
+def interactive_scoping_node(state: ResearchState) -> ResearchState:
+    """
+    Interactive scoping node that engages in back-and-forth conversation 
+    with the user to clarify research scope and requirements.
+    
+    Uses interrupt() to pause execution for human input and asks clarifying
+    questions about the research topic. Updates the research_brief field
+    with gathered information and sets user_confirmed=True when ready.
+    
+    Args:
+        state: Current research state
+        
+    Returns:
+        Updated state with research_brief and user_confirmed status
+    """
+    # Get the latest user message
+    if not state["messages"]:
+        return state
+    
+    latest_message = state["messages"][-1]
+    
+    # Check if this is the initial scoping or continuation
+    if not state["research_brief"]:
+        # Initial scoping - analyze the user's request and ask clarifying questions
+        user_content = latest_message.content if hasattr(latest_message, 'content') else str(latest_message)
+        
+        # Generate clarifying questions based on the initial request
+        clarifying_questions = generate_clarifying_questions(user_content)
+        
+        # Create response asking for more details
+        scoping_response = AIMessage(
+            content=f"I understand you want to research: {user_content}\n\n"
+                   f"To provide you with the most comprehensive and relevant research, "
+                   f"I'd like to clarify a few things:\n\n{clarifying_questions}\n\n"
+                   f"Please provide more details about these aspects, or if you're satisfied "
+                   f"with the current scope, simply type 'proceed' or 'ready' to start the research."
+        )
+        
+        # Add the response to messages
+        state["messages"].append(scoping_response)
+        
+        # Update phase to indicate we're in active scoping
+        state["phase"] = "scoping"
+        
+        # Use interrupt to pause for human input
+        interrupt("Please provide more details about your research requirements, or type 'proceed' if ready to start research.")
+        
+    else:
+        # Continuation of scoping - process user's additional input
+        user_response = latest_message.content if hasattr(latest_message, 'content') else str(latest_message)
+        
+        # Check if user wants to proceed with research
+        proceed_keywords = ['proceed', 'ready', 'start research', 'go ahead', 'continue', 'yes', 'confirmed']
+        if any(keyword in user_response.lower() for keyword in proceed_keywords):
+            # User confirmed - finalize research brief and set confirmed flag
+            state["user_confirmed"] = True
+            state["phase"] = "research"
+            
+            # Create final confirmation message
+            confirmation_msg = AIMessage(
+                content="Perfect! I have all the information I need. Let me now conduct comprehensive research "
+                       f"on your topic. Here's what I'll be researching:\n\n{state['research_brief']}\n\n"
+                       "Starting research now..."
+            )
+            state["messages"].append(confirmation_msg)
+            
+        else:
+            # User provided more details - update research brief
+            if state["research_brief"]:
+                state["research_brief"] += f"\n\nAdditional details: {user_response}"
+            else:
+                state["research_brief"] = user_response
+            
+            # Ask if they want to add more details or proceed
+            follow_up_msg = AIMessage(
+                content="Thank you for the additional details! I've updated the research scope:\n\n"
+                       f"**Current Research Brief:**\n{state['research_brief']}\n\n"
+                       "Would you like to add any more specific requirements, or shall I proceed with "
+                       "the research? (Type 'proceed' when ready, or provide more details)"
+            )
+            state["messages"].append(follow_up_msg)
+            
+            # Interrupt again for potential additional input
+            interrupt("Would you like to add more details or proceed with research?")
+    
+    return state
+
+
+def generate_clarifying_questions(user_request: str) -> str:
+    """
+    Generate relevant clarifying questions based on the user's initial request.
+    
+    Args:
+        user_request: The user's initial research request
+        
+    Returns:
+        Formatted string with clarifying questions
+    """
+    # Basic clarifying questions that apply to most research topics
+    questions = [
+        "1. What specific aspects or subtopics are you most interested in?",
+        "2. What is the intended use or purpose of this research?",
+        "3. Are you looking for recent developments, historical context, or both?",
+        "4. Do you need information from specific sources or domains?",
+        "5. What level of detail do you need (overview, in-depth analysis, technical details)?"
+    ]
+    
+    # Add topic-specific questions based on keywords
+    user_lower = user_request.lower()
+    
+    if any(tech_word in user_lower for tech_word in ['ai', 'artificial intelligence', 'machine learning', 'technology']):
+        questions.append("6. Are you interested in specific AI applications, techniques, or industry impacts?")
+    
+    if any(business_word in user_lower for business_word in ['business', 'market', 'industry', 'company']):
+        questions.append("6. Are you looking for market analysis, competitive landscape, or business strategies?")
+    
+    if any(health_word in user_lower for health_word in ['health', 'medical', 'healthcare', 'medicine']):
+        questions.append("6. Do you need clinical research, treatment options, or general health information?")
+    
+    return "\n".join(questions)
+
+
 # Create the StateGraph with our custom ResearchState schema
 graph_builder = StateGraph(ResearchState)
 
@@ -133,5 +255,6 @@ if __name__ == "__main__":
     # Run test when script is executed directly
     test_result = test_minimal_input()
     print(f"Test result: {test_result}")
+
 
 
