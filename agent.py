@@ -302,8 +302,7 @@ def build_graph():
         should_continue_clarification,
         {
             "clarification": "clarification",
-            "research": "research",
-            END: END
+            "research": "research"
         }
     )
     workflow.add_edge("research", END)
@@ -369,6 +368,7 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nError: {e}")
+
 
 
 
