@@ -476,7 +476,67 @@ graph_builder.add_edge("research_node", END)
 
 # Compile the graph and export as 'app' for deployment
 # This creates a CompiledGraph that can be invoked with minimal state
+# The agent accepts minimal input: {"messages": [HumanMessage("Your prompt here")]}
 app = graph_builder.compile()
+
+
+def validate_minimal_input_support():
+    """
+    Validate that the compiled graph accepts minimal input state as specified in requirements.
+    
+    The agent must accept minimal state containing only a 'messages' list with a HumanMessage:
+    {
+        "messages": [HumanMessage("Your prompt here")]
+    }
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    from langchain_core.messages import HumanMessage
+    
+    try:
+        # Test minimal input as specified in requirements
+        minimal_state = {
+            "messages": [HumanMessage("I want to research quantum computing")]
+        }
+        
+        # Validate that the state initialization works correctly
+        initialized_state = initialize_agent_state(minimal_state)
+        
+        # Verify all required fields are properly initialized
+        required_fields = ["messages", "research_brief", "phase", "user_confirmed"]
+        for field in required_fields:
+            if field not in initialized_state:
+                print(f"❌ Missing required field: {field}")
+                return False
+        
+        # Verify correct default values
+        if initialized_state["research_brief"] != "":
+            print(f"❌ Incorrect default for research_brief: {initialized_state['research_brief']}")
+            return False
+            
+        if initialized_state["phase"] != "scoping":
+            print(f"❌ Incorrect default for phase: {initialized_state['phase']}")
+            return False
+            
+        if initialized_state["user_confirmed"] != False:
+            print(f"❌ Incorrect default for user_confirmed: {initialized_state['user_confirmed']}")
+            return False
+        
+        # Verify messages are properly handled
+        if len(initialized_state["messages"]) < 2:
+            print(f"❌ Messages not properly initialized: {len(initialized_state['messages'])}")
+            return False
+        
+        print("✅ Minimal input validation passed")
+        print(f"✅ Agent accepts: {{'messages': [HumanMessage('Your prompt here')]}}")
+        print(f"✅ All required state fields initialized correctly")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Minimal input validation failed: {e}")
+        return False
 
 
 # Test functions to verify the implementation works correctly
@@ -707,6 +767,7 @@ if __name__ == "__main__":
         print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
