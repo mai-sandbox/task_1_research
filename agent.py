@@ -317,8 +317,9 @@ app = build_graph()
 
 # Optional: Add a main function for testing
 if __name__ == "__main__":
-    import asyncio
     from dotenv import load_dotenv
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.types import Command
     
     # Load environment variables
     load_dotenv()
@@ -326,48 +327,76 @@ if __name__ == "__main__":
     print("Starting LangGraph Deep Research Agent...")
     print("=" * 50)
     
+    # Create a checkpointer for persistence (required for interrupt)
+    memory = MemorySaver()
+    
+    # Recompile the graph with checkpointer
+    workflow = StateGraph(ResearchState)
+    workflow.add_node("clarification", clarification_agent)
+    workflow.add_node("research", research_agent_node)
+    workflow.add_edge(START, "clarification")
+    workflow.add_conditional_edges(
+        "clarification",
+        should_continue_clarification,
+        {
+            "clarification": "clarification",
+            "research": "research"
+        }
+    )
+    workflow.add_edge("research", END)
+    app_with_memory = workflow.compile(checkpointer=memory)
+    
     # Initial state
     initial_state = {
-        "messages": [],
+        "messages": [HumanMessage(content="I need help with research")],
         "research_brief": "",
+        "clarification_complete": False,
         "research_complete": False,
         "final_report": ""
     }
     
+    # Configuration with thread ID for persistence
+    config = {"configurable": {"thread_id": "research_session_1"}}
+    
     try:
-        # Run the agent
-        for event in app.stream(initial_state):
+        # Run the agent with streaming
+        for event in app_with_memory.stream(initial_state, config, stream_mode="updates"):
             if "__interrupt__" in event:
-                # Handle interrupt
+                # Handle interrupt - get user input
                 interrupt_data = event["__interrupt__"]
                 if isinstance(interrupt_data, tuple) and len(interrupt_data) > 0:
                     interrupt_value = interrupt_data[0].value
-                    print("\n" + interrupt_value.get("message", ""))
-                    user_input = input("\nYour response: ")
+                    query = interrupt_value.get("query", "Please provide input")
                     
-                    # Resume with user input
-                    app.update_state(
-                        config={"configurable": {"thread_id": "research_thread"}},
-                        values={"response": user_input}
-                    )
+                    # Get user input from terminal
+                    user_input = input(f"\n💬 {query}: ")
+                    
+                    # Resume with user input using Command
+                    command = Command(resume={"data": user_input})
+                    for update in app_with_memory.stream(command, config, stream_mode="updates"):
+                        if "research" in update and update["research"].get("final_report"):
+                            print("\n" + "=" * 70)
+                            print("📊 FINAL RESEARCH REPORT")
+                            print("=" * 70)
+                            print(update["research"]["final_report"])
+                            print("=" * 70)
             else:
                 # Process normal events
                 for node, data in event.items():
-                    if node != "__end__":
-                        if "messages" in data and data["messages"]:
-                            last_message = data["messages"][-1]
-                            if hasattr(last_message, 'content'):
-                                print(f"\n{last_message.content}")
-                        if "final_report" in data and data["final_report"]:
-                            print("\n" + "=" * 50)
-                            print("FINAL RESEARCH REPORT")
-                            print("=" * 50)
-                            print(data["final_report"])
+                    if node == "research" and data.get("final_report"):
+                        print("\n" + "=" * 70)
+                        print("📊 FINAL RESEARCH REPORT")
+                        print("=" * 70)
+                        print(data["final_report"])
+                        print("=" * 70)
     
     except KeyboardInterrupt:
-        print("\n\nResearch agent terminated by user.")
+        print("\n\n❌ Research agent terminated by user.")
     except Exception as e:
-        print(f"\nError: {e}")
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+
 
 
 
