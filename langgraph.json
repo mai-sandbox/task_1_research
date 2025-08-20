@@ -1,0 +1,14 @@
+{
+  "dependencies": [
+    "langgraph",
+    "langchain",
+    "langchain-anthropic",
+    "tavily-python",
+    "python-dotenv",
+    "typing-extensions"
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": ".env"
+}
