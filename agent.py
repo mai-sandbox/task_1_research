@@ -31,6 +31,7 @@ def clarification_node(state: ResearchState) -> dict:
     """
     Phase 1: Interactive clarification with the user
     Uses interrupt() to pause and gather user input multiple times
+    Validates responses and builds a comprehensive research brief
     """
     messages = state.get("messages", [])
     
@@ -49,6 +50,16 @@ Please share your initial research request."""
             "phase": "initial_request"
         })
         
+        # Validate initial response
+        if not user_response or len(user_response.strip()) < 5:
+            validation_prompt = "I need more information to help you. Could you please provide a more detailed research request?"
+            user_response = interrupt({
+                "question": validation_prompt,
+                "phase": "validation_initial"
+            })
+            messages.append(AIMessage(content=validation_prompt))
+            messages.append(HumanMessage(content=user_response))
+        
         # Add the interaction to messages
         messages.append(AIMessage(content=initial_prompt))
         messages.append(HumanMessage(content=user_response))
@@ -56,10 +67,13 @@ Please share your initial research request."""
         # Ask follow-up questions based on initial response
         followup_prompt = f"""Thank you for sharing that. Based on your request about: "{user_response}"
 
-Let me ask a few clarifying questions:
+Let me ask a few clarifying questions to ensure I understand your needs:
 1. What is the intended use or goal of this research?
-2. How detailed should the research be?
-3. Are there any specific angles or perspectives you want me to focus on?"""
+2. How detailed should the research be (brief overview vs. comprehensive analysis)?
+3. Are there any specific angles, perspectives, or sources you want me to focus on?
+4. What timeframe or recency of information is most relevant?
+
+Please provide as much detail as you're comfortable sharing."""
         
         # Second interrupt for clarification
         clarification_response = interrupt({
@@ -67,22 +81,37 @@ Let me ask a few clarifying questions:
             "phase": "clarification"
         })
         
+        # Validate clarification response
+        if not clarification_response or len(clarification_response.strip()) < 10:
+            validation_prompt = "To provide the best research, I need a bit more context. Could you elaborate on any of the questions above?"
+            clarification_response = interrupt({
+                "question": validation_prompt,
+                "phase": "validation_clarification"
+            })
+            messages.append(AIMessage(content=validation_prompt))
+            messages.append(HumanMessage(content=clarification_response))
+        
         messages.append(AIMessage(content=followup_prompt))
         messages.append(HumanMessage(content=clarification_response))
         
-        # Ask for confirmation
+        # Build comprehensive research brief
         research_brief = f"""Based on our conversation, here's what I understand you need:
 
 **Research Topic**: {user_response}
 
-**Additional Context**: {clarification_response}
+**Additional Context and Requirements**: 
+{clarification_response}
 
-I'll conduct a comprehensive search and analysis on this topic, focusing on:
-- Current and relevant information
-- Multiple perspectives and sources
-- Practical insights and applications
+**Research Approach**:
+I'll conduct a comprehensive search and analysis focusing on:
+- Current and relevant information from reliable sources
+- Multiple perspectives and viewpoints on the topic
+- Practical insights, data, and applications
+- Evidence-based findings and expert opinions
+- Actionable recommendations where applicable
 
-Is this correct, or would you like to add/modify anything? (Type 'yes' to proceed or provide additional details)"""
+Is this correct, or would you like to add/modify anything? 
+(Type 'yes' or 'proceed' to continue, or provide additional details to refine the research scope)"""
         
         # Final interrupt for confirmation
         confirmation = interrupt({
@@ -94,13 +123,22 @@ Is this correct, or would you like to add/modify anything? (Type 'yes' to procee
         messages.append(HumanMessage(content=confirmation))
         
         # Check if user confirmed or wants more clarification
-        if confirmation.lower() in ['yes', 'y', 'correct', 'proceed', 'go ahead']:
-            # Create the final research brief
+        confirmation_lower = confirmation.lower().strip()
+        if confirmation_lower in ['yes', 'y', 'correct', 'proceed', 'go ahead', 'ok', 'okay', 'confirm', 'confirmed']:
+            # Create the final comprehensive research brief
             final_brief = f"""Research Brief:
 Topic: {user_response}
-Context and Requirements: {clarification_response}
+
+Context and Requirements:
+{clarification_response}
+
+Research Objectives:
+- Provide current and accurate information
+- Include multiple perspectives and sources
+- Focus on practical applications and insights
+- Generate actionable recommendations
 """
-            messages.append(AIMessage(content="Great! I'll now proceed with the research based on our discussion."))
+            messages.append(AIMessage(content="Excellent! I have a clear understanding of your research needs. I'll now proceed with conducting thorough research based on our discussion."))
             
             return {
                 "messages": messages,
@@ -109,7 +147,12 @@ Context and Requirements: {clarification_response}
             }
         else:
             # User wants to modify - ask what to change
-            modification_prompt = "I understand you'd like to modify the research brief. Please tell me what you'd like to change or add:"
+            modification_prompt = """I understand you'd like to modify or add to the research brief. Please tell me:
+1. What specific changes would you like to make?
+2. Any additional requirements or constraints?
+3. Any areas you want me to emphasize or de-emphasize?
+
+Please provide your modifications:"""
             
             modification = interrupt({
                 "question": modification_prompt,
@@ -119,13 +162,37 @@ Context and Requirements: {clarification_response}
             messages.append(AIMessage(content=modification_prompt))
             messages.append(HumanMessage(content=modification))
             
-            # Update the research brief
+            # Validate modification response
+            if not modification or len(modification.strip()) < 5:
+                final_check = "Would you like to proceed with the research as originally outlined? (yes/no)"
+                final_response = interrupt({
+                    "question": final_check,
+                    "phase": "final_check"
+                })
+                
+                if final_response.lower().strip() in ['yes', 'y', 'proceed']:
+                    modification = "No modifications needed"
+                else:
+                    modification = "Research scope to be kept general based on initial request"
+            
+            # Update the research brief with modifications
             final_brief = f"""Research Brief:
 Topic: {user_response}
-Context and Requirements: {clarification_response}
-Additional modifications: {modification}
+
+Context and Requirements:
+{clarification_response}
+
+Additional Modifications:
+{modification}
+
+Research Objectives:
+- Provide current and accurate information
+- Include multiple perspectives and sources
+- Focus on practical applications and insights
+- Generate actionable recommendations
+- Incorporate specified modifications
 """
-            messages.append(AIMessage(content="Perfect! I've updated the research brief. Now proceeding with the research."))
+            messages.append(AIMessage(content="Perfect! I've updated the research brief with your modifications. Now proceeding with the comprehensive research."))
             
             return {
                 "messages": messages,
@@ -297,6 +364,7 @@ if __name__ == "__main__":
     # Or import and use in another script:
     # from agent import app
     # result = app.invoke({"messages": [HumanMessage("I need research help")]}, config)
+
 
 
 
