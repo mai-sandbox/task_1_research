@@ -625,7 +625,7 @@ def test_routing_logic():
             "user_confirmed": True
         }
         
-        routing_result = routing_node(completed_state)
+        routing_result = routing_logic(completed_state)
         assert routing_result == "END", f"Expected 'END', got '{routing_result}'"
         print("✅ Routing to END test passed")
         
@@ -677,6 +677,7 @@ if __name__ == "__main__":
         print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
