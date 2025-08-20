@@ -267,17 +267,14 @@ Format the report in a clear, professional manner with proper sections and bulle
         }
 
 
-def should_continue_clarification(state: ResearchState) -> Literal["clarification", "research", END]:
+def should_continue_clarification(state: ResearchState) -> Literal["clarification", "research"]:
     """
-    Conditional edge function to determine next step in the workflow.
-    Routes to research if brief is ready, continues clarification if not, or ends if complete.
+    Conditional edge function to determine next step after clarification.
+    Routes to research if clarification is complete, otherwise continues clarification.
     """
-    research_brief = state.get("research_brief", "")
-    research_complete = state.get("research_complete", False)
+    clarification_complete = state.get("clarification_complete", False)
     
-    if research_complete:
-        return END
-    elif research_brief:
+    if clarification_complete:
         return "research"
     else:
         return "clarification"
@@ -366,6 +363,7 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nError: {e}")
+
 
 
 
