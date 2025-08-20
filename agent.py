@@ -153,7 +153,7 @@ def research_agent_node(state: ResearchState) -> dict:
         }
     
     # Initialize Tavily search tool
-    tavily_tool = TavilySearchResults(
+    tavily_tool = TavilySearch(
         max_results=5,
         search_depth="advanced",
         include_answer=True,
@@ -412,6 +412,7 @@ if __name__ == "__main__":
         print(f"\nAn error occurred: {e}")
         import traceback
         traceback.print_exc()
+
 
 
 
