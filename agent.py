@@ -591,6 +591,72 @@ def test_react_research_node():
         return False
 
 
+def test_routing_logic():
+    """
+    Test the conditional routing logic functionality.
+    """
+    print("\n🧪 Testing conditional routing logic...")
+    
+    try:
+        # Test 1: User not confirmed, should route to scoping_node
+        scoping_state = {
+            "messages": [HumanMessage("I want to research AI")],
+            "research_brief": "",
+            "phase": "scoping",
+            "user_confirmed": False
+        }
+        
+        routing_result = routing_node(scoping_state)
+        assert routing_result == "scoping_node", f"Expected 'scoping_node', got '{routing_result}'"
+        print("✅ Routing to scoping_node test passed")
+        
+        # Test 2: User confirmed and ready for research, should route to research_node
+        research_state = {
+            "messages": [HumanMessage("I want to research AI")],
+            "research_brief": "AI applications in healthcare",
+            "phase": "research",
+            "user_confirmed": True
+        }
+        
+        routing_result = routing_node(research_state)
+        assert routing_result == "research_node", f"Expected 'research_node', got '{routing_result}'"
+        print("✅ Routing to research_node test passed")
+        
+        # Test 3: Research completed, should route to END
+        completed_state = {
+            "messages": [HumanMessage("I want to research AI")],
+            "research_brief": "AI applications in healthcare",
+            "phase": "completed",
+            "user_confirmed": True
+        }
+        
+        routing_result = routing_node(completed_state)
+        assert routing_result == "END", f"Expected 'END', got '{routing_result}'"
+        print("✅ Routing to END test passed")
+        
+        # Test 4: Edge case - user confirmed but still in scoping phase
+        edge_case_state = {
+            "messages": [HumanMessage("I want to research AI")],
+            "research_brief": "AI applications",
+            "phase": "scoping",
+            "user_confirmed": True
+        }
+        
+        routing_result = routing_node(edge_case_state)
+        assert routing_result == "scoping_node", f"Expected 'scoping_node', got '{routing_result}'"
+        print("✅ Edge case routing test passed")
+        
+        print("✅ Conditional routing logic implementation is working correctly")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Routing logic test failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 if __name__ == "__main__":
     # Run tests when script is executed directly
     print("🚀 Testing LangGraph Deep Research Agent Implementation")
@@ -612,6 +678,7 @@ if __name__ == "__main__":
         print("✅ ReAct research node with Tavily search implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
