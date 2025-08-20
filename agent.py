@@ -8,7 +8,6 @@ This agent implements a two-stage research system:
 
 import os
 from typing import Annotated, TypedDict, List, Optional
-from typing_extensions import TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_anthropic import ChatAnthropic
@@ -297,3 +296,4 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
