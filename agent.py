@@ -22,9 +22,9 @@ from langgraph.types import interrupt
 class ResearchState(TypedDict):
     """State that flows through both clarification and research phases"""
     messages: Annotated[list[BaseMessage], add_messages]
-    research_brief: str
-    clarification_complete: bool
-    final_report: str
+    research_brief: Optional[str]
+    clarification_complete: Optional[bool]
+    final_report: Optional[str]
 
 
 def clarification_node(state: ResearchState) -> dict:
@@ -289,4 +289,5 @@ if __name__ == "__main__":
     # Or import and use in another script:
     # from agent import app
     # result = app.invoke({"messages": [HumanMessage("I need research help")]}, config)
+
 
