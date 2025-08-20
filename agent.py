@@ -398,9 +398,9 @@ This research provides a foundation for understanding the topic. For the most cu
 """
 
 
-def routing_node(state: ResearchState) -> str:
+def routing_logic(state: ResearchState) -> str:
     """
-    Conditional routing node that determines the next step in the workflow
+    Conditional routing function that determines the next step in the workflow
     based on user_confirmed and phase state fields.
     
     Routing Logic:
@@ -682,6 +682,7 @@ if __name__ == "__main__":
         print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
