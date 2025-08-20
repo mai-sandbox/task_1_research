@@ -143,7 +143,7 @@ def research_node(state: ResearchState) -> dict:
         model=ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3),
         tools=[tavily_tool],
         prompt="""You are an expert research agent with access to web search capabilities.
-        
+
 Your task is to conduct thorough, detailed research based on the provided research brief.
 Use your search tool to gather comprehensive information from multiple sources.
 Synthesize the information into a well-structured, detailed report.
@@ -307,6 +307,7 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
 
 
 
