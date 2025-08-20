@@ -759,14 +759,30 @@ if __name__ == "__main__":
     # Test 4: Conditional routing logic functionality
     routing_test_passed = test_routing_logic()
     
-    if test_result and scoping_test_passed and research_test_passed and routing_test_passed:
-        print("\n🎉 All tests passed! Conditional routing logic is ready.")
+    # Test 5: Graph compilation and minimal input validation
+    print("\n🧪 Testing graph compilation and export...")
+    compilation_test_passed = validate_minimal_input_support()
+    
+    # Verify app is exported at module level
+    if 'app' in globals() and hasattr(app, 'invoke'):
+        print("✅ Graph compiled and exported as 'app' at module level")
+        app_export_test_passed = True
+    else:
+        print("❌ Graph not properly exported as 'app'")
+        app_export_test_passed = False
+    
+    if (test_result and scoping_test_passed and research_test_passed and 
+        routing_test_passed and compilation_test_passed and app_export_test_passed):
+        print("\n🎉 All tests passed! Graph compilation and export is ready.")
         print("✅ State schema works correctly")
         print("✅ Interactive scoping node implemented")
         print("✅ ReAct research node with Tavily search implemented")
         print("✅ Conditional routing logic implemented")
+        print("✅ Graph compilation and export configured")
+        print("✅ Agent accepts minimal input: {'messages': [HumanMessage('prompt')]}")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
