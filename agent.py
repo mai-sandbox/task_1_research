@@ -128,7 +128,7 @@ def scoping_node(state: ResearchState) -> dict:
         return {
             "research_brief": final_brief.content,
             "phase": "research",
-            "messages": [AIMessage(content=f"Research brief finalized. Starting detailed research...")]
+            "messages": [AIMessage(content="Research brief finalized. Starting detailed research...")]
         }
     else:
         # Need more clarification
@@ -329,6 +329,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         sys.exit(1)
+
 
 
 
