@@ -36,81 +36,107 @@ def scoping_agent(state: ResearchState) -> dict:
     messages = state.get("messages", [])
     scope_confirmed = state.get("scope_confirmed", False)
     research_scope = state.get("research_scope", "")
+    scoping_iterations = state.get("scoping_iterations", 0)
     
-    # If this is the first interaction or we're continuing the scoping conversation
-    if not scope_confirmed:
-        # Initialize the LLM for scoping
-        llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3)
-        
-        # System prompt for the scoping agent
-        system_prompt = SystemMessage(content="""You are a research scoping assistant. Your role is to:
+    # If scope is already confirmed, move to research phase
+    if scope_confirmed:
+        return {"phase": "researching"}
+    
+    # Initialize the LLM for scoping
+    llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3)
+    
+    # System prompt for the scoping agent
+    system_prompt = SystemMessage(content="""You are a research scoping assistant. Your role is to:
 1. Understand what the user wants to research
 2. Ask clarifying questions to define the scope clearly
 3. Identify key aspects, boundaries, and specific areas of focus
 4. Summarize the research scope when ready
 
 Be conversational but focused. Ask one or two clarifying questions at a time.
-When you have enough clarity, summarize the research scope and ask for confirmation.""")
-        
-        # Get the conversation history for context
-        conversation = [system_prompt] + messages
-        
-        # Generate response
-        response = llm.invoke(conversation)
-        
-        # Check if the response indicates we have a clear scope
-        # Look for confirmation keywords in the response
-        response_text = response.content.lower()
-        
-        # If the assistant is asking for final confirmation or has a clear scope
-        if any(phrase in response_text for phrase in ["confirm", "shall i proceed", "is this correct", "ready to begin"]):
-            # Extract the research scope from the conversation
-            # Interrupt to get user confirmation
-            user_response = interrupt({
-                "message": response.content,
-                "awaiting": "confirmation",
-                "instructions": "Please respond with 'yes' to confirm the scope, or provide additional clarification."
-            })
-            
-            # Check if user confirmed
-            if user_response and isinstance(user_response, dict):
-                user_input = user_response.get("response", "").lower()
-                if "yes" in user_input or "confirm" in user_input or "proceed" in user_input:
-                    # Extract the research scope from the assistant's last message
-                    research_scope = response.content
-                    return {
-                        "messages": [response, HumanMessage(content=user_response.get("response", ""))],
-                        "research_scope": research_scope,
-                        "scope_confirmed": True,
-                        "phase": "researching"
-                    }
-                else:
-                    # User wants to clarify more
-                    return {
-                        "messages": [response, HumanMessage(content=user_response.get("response", ""))],
-                        "scope_confirmed": False,
-                        "phase": "scoping"
-                    }
-        else:
-            # Continue the scoping conversation
-            # Interrupt to get user input
-            user_response = interrupt({
-                "message": response.content,
-                "awaiting": "user_input",
-                "instructions": "Please provide your response to continue defining the research scope."
-            })
-            
-            if user_response and isinstance(user_response, dict):
-                return {
-                    "messages": [response, HumanMessage(content=user_response.get("response", ""))],
-                    "scope_confirmed": False,
-                    "phase": "scoping"
-                }
+After gathering enough information (usually 2-4 exchanges), provide a clear research scope summary and ask for confirmation.
+Format your final scope summary clearly with bullet points.""")
     
-    # Default return if scope is already confirmed
-    return {
-        "phase": "researching"
-    }
+    # Get the conversation history for context
+    conversation = [system_prompt] + messages
+    
+    # Generate response
+    response = llm.invoke(conversation)
+    
+    # Check if we should ask for confirmation (after a few iterations or if scope seems clear)
+    response_text = response.content.lower()
+    is_confirmation_request = any(phrase in response_text for phrase in [
+        "confirm", "shall i proceed", "is this correct", "ready to begin", 
+        "does this capture", "shall we proceed"
+    ])
+    
+    # After 3+ iterations, encourage confirmation
+    if scoping_iterations >= 3 and not is_confirmation_request:
+        # Add a confirmation prompt
+        response.content += "\n\nBased on our discussion, I believe I have a clear understanding of your research needs. Shall we proceed with this scope?"
+        is_confirmation_request = True
+    
+    if is_confirmation_request:
+        # Interrupt to get user confirmation
+        user_input = interrupt({
+            "message": response.content,
+            "awaiting": "confirmation",
+            "phase": "scoping_confirmation"
+        })
+        
+        # Process user response
+        user_text = user_input if isinstance(user_input, str) else ""
+        user_text_lower = user_text.lower()
+        
+        if any(word in user_text_lower for word in ["yes", "confirm", "proceed", "correct", "looks good", "perfect"]):
+            # Extract research scope from the conversation
+            # Look for the most recent scope summary in the response
+            scope_summary = response.content
+            
+            # Find the scope section if it exists
+            if "research scope" in response_text or "scope:" in response_text:
+                # Extract the scope section
+                lines = response.content.split('\n')
+                scope_lines = []
+                in_scope = False
+                for line in lines:
+                    if any(marker in line.lower() for marker in ["research scope", "scope:", "will research", "will investigate"]):
+                        in_scope = True
+                    if in_scope:
+                        scope_lines.append(line)
+                if scope_lines:
+                    scope_summary = '\n'.join(scope_lines)
+            
+            return {
+                "messages": [response, HumanMessage(content=user_text)],
+                "research_scope": scope_summary,
+                "scope_confirmed": True,
+                "phase": "researching",
+                "scoping_iterations": scoping_iterations + 1
+            }
+        else:
+            # User wants to clarify more
+            return {
+                "messages": [response, HumanMessage(content=user_text)],
+                "scope_confirmed": False,
+                "phase": "scoping",
+                "scoping_iterations": scoping_iterations + 1
+            }
+    else:
+        # Continue the scoping conversation
+        user_input = interrupt({
+            "message": response.content,
+            "awaiting": "clarification",
+            "phase": "scoping_discussion"
+        })
+        
+        user_text = user_input if isinstance(user_input, str) else ""
+        
+        return {
+            "messages": [response, HumanMessage(content=user_text)],
+            "scope_confirmed": False,
+            "phase": "scoping",
+            "scoping_iterations": scoping_iterations + 1
+        }
 
 
 def research_agent_node(state: ResearchState) -> dict:
@@ -306,4 +332,5 @@ if __name__ == "__main__":
             if hasattr(last_message, 'content'):
                 print("\nFinal Report:")
                 print(last_message.content)
+
 
