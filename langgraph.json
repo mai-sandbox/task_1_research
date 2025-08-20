@@ -1,0 +1,14 @@
+{
+  "dependencies": [
+    "langgraph",
+    "tavily-python",
+    "langchain",
+    "langchain-community",
+    "langchain-openai"
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": ".env",
+  "python_version": "3.11"
+}
