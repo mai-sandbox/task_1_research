@@ -204,17 +204,22 @@ graph_builder = StateGraph(ResearchState)
 # Add the state initialization node
 graph_builder.add_node("initialize_state", initialize_agent_state)
 
+# Add the interactive scoping node
+graph_builder.add_node("scoping_node", interactive_scoping_node)
+
 # Connect START to the initialization node
 graph_builder.add_edge(START, "initialize_state")
 
+# Connect initialization to scoping node
+graph_builder.add_edge("initialize_state", "scoping_node")
+
 # Placeholder connections for future nodes
 # These will be implemented in subsequent tasks:
-# - scoping_node: Interactive conversation for research scope clarification
 # - routing_node: Conditional logic to determine workflow progression  
 # - research_node: ReAct agent with Tavily search capabilities
 
-# Temporary end connection (will be updated when workflow nodes are added)
-graph_builder.add_edge("initialize_state", END)
+# Temporary end connection from scoping node (will be updated when routing is added)
+graph_builder.add_edge("scoping_node", END)
 
 # Compile the graph and export as 'app' for deployment
 app = graph_builder.compile()
@@ -255,6 +260,7 @@ if __name__ == "__main__":
     # Run test when script is executed directly
     test_result = test_minimal_input()
     print(f"Test result: {test_result}")
+
 
 
 
