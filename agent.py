@@ -405,8 +405,9 @@ def routing_logic(state: ResearchState) -> str:
     
     Routing Logic:
     - If user_confirmed=True and phase='research': go to research_node
-    - If user_confirmed=False or phase='scoping': continue with scoping_node
     - If phase='completed': end the workflow
+    - If user_confirmed=False and phase='scoping': continue with scoping_node
+    - Default fallback: end to prevent infinite loops
     
     Args:
         state: Current research state
@@ -414,16 +415,28 @@ def routing_logic(state: ResearchState) -> str:
     Returns:
         String indicating the next node to execute
     """
-    # Check if user has confirmed and is ready for research
-    if state.get("user_confirmed", False) and state.get("phase") == "research":
-        return "research_node"
-    
     # Check if research is already completed
     if state.get("phase") == "completed":
         return "END"
     
-    # Default: continue with scoping if user hasn't confirmed or still in scoping phase
-    return "scoping_node"
+    # Check if user has confirmed and is ready for research
+    if state.get("user_confirmed", False) and state.get("phase") == "research":
+        return "research_node"
+    
+    # Check if we're in scoping phase and user hasn't confirmed yet
+    if state.get("phase") == "scoping" and not state.get("user_confirmed", False):
+        # Count how many times we've been through scoping to prevent infinite loops
+        messages = state.get("messages", [])
+        scoping_messages = [msg for msg in messages if isinstance(msg, AIMessage) and "clarify" in msg.content.lower()]
+        
+        # If we've already asked clarifying questions multiple times, end to prevent loops
+        if len(scoping_messages) > 3:
+            return "END"
+        
+        return "scoping_node"
+    
+    # Default fallback: end the workflow to prevent infinite loops
+    return "END"
 
 
 # Create the StateGraph with our custom ResearchState schema
@@ -689,6 +702,7 @@ if __name__ == "__main__":
         print("✅ Conditional routing logic implemented")
     else:
         print("\n⚠️  Some tests failed. Please check the implementation.")
+
 
 
 
