@@ -1,0 +1,11 @@
+{
+  "dependencies": [
+    ".",
+    "langchain-community",
+    "tavily-python"
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": ".env"
+}
