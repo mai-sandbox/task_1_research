@@ -36,7 +36,7 @@ def clarification_node(state: ResearchState) -> dict:
     messages = state.get("messages", [])
 
     # Initialize the LLM for clarification
-    llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.3)
+    llm = ChatAnthropic(model_name="claude-3-5-sonnet-20241022", temperature=0.3)
 
     # If this is the first interaction, provide initial guidance
     if len(messages) <= 1:
@@ -307,3 +307,4 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nAn error occurred: {e}")
+
