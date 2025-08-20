@@ -73,7 +73,7 @@ def scoping_node(state: ResearchState) -> dict:
         # Use interrupt to get user input
         user_response = interrupt({
             "message": "I'll help you with your research. To ensure I provide the most relevant information, "
-                      "I have a few clarifying questions:\n\n" + questions + "\n\nPlease provide your answers:",
+                       "I have a few clarifying questions:\n\n" + questions + "\n\nPlease provide your answers:",
             "type": "clarification_request"
         })
 
@@ -329,5 +329,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Error: {e}")
         sys.exit(1)
+
 
 
