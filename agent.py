@@ -182,6 +182,11 @@ def research_agent_node(state: ResearchState) -> Dict[str, Any]:
     to conduct research based on the brief and generate a detailed report.
     """
     research_brief = state.get("research_brief", "")
+    research_complete = state.get("research_complete", False)
+    
+    # If research is already complete, pass through
+    if research_complete:
+        return {}
     
     if not research_brief:
         return {
@@ -189,16 +194,20 @@ def research_agent_node(state: ResearchState) -> Dict[str, Any]:
             "research_complete": False
         }
     
+    print("\n🔍 Starting research phase...")
+    print(f"Research Brief: {research_brief}\n")
+    
     # Initialize Tavily search tool
     tavily_tool = TavilySearchResults(
         max_results=5,
         search_depth="advanced",
         include_answer=True,
         include_raw_content=False,
-        include_images=False
+        include_images=False,
+        name="tavily_search"
     )
     
-    # Create the ReAct agent with Tavily search
+    # Get the LLM
     llm = get_llm()
     
     # Create a research prompt
@@ -214,7 +223,15 @@ Instructions:
 5. Gather both general context and specific details
 
 Conduct thorough research using multiple search queries to cover all aspects of the research brief.
-After gathering sufficient information, synthesize your findings into a comprehensive report."""
+After gathering sufficient information, synthesize your findings into a comprehensive report that includes:
+
+1. **Executive Summary** - Brief overview of key findings
+2. **Key Findings** - Main discoveries and insights
+3. **Detailed Analysis** - In-depth examination of the topic
+4. **Sources and References** - List of sources consulted
+5. **Conclusions and Recommendations** - Final thoughts and actionable insights
+
+Format the report in a clear, professional manner with proper sections and bullet points where appropriate."""
     
     # Create the ReAct agent
     react_agent = create_react_agent(
@@ -224,34 +241,22 @@ After gathering sufficient information, synthesize your findings into a comprehe
     )
     
     # Execute the research
-    research_messages = [HumanMessage(content=f"Please conduct research on: {research_brief}")]
+    research_messages = [HumanMessage(content=f"Please conduct comprehensive research on the following topic and create a detailed report:\n\n{research_brief}")]
     
     try:
+        print("🔄 Conducting research using Tavily search...")
+        
         # Run the ReAct agent
         result = react_agent.invoke({"messages": research_messages})
         
         # Extract the final report from the agent's response
-        final_message = result["messages"][-1]
+        if result.get("messages"):
+            final_message = result["messages"][-1]
+            final_report = final_message.content if hasattr(final_message, 'content') else str(final_message)
+        else:
+            final_report = "Research completed but no report was generated."
         
-        # Generate a comprehensive report based on the research
-        report_prompt = f"""Based on the research conducted, create a detailed and well-structured report.
-
-Research Brief: {research_brief}
-
-Research Findings:
-{final_message.content if hasattr(final_message, 'content') else str(final_message)}
-
-Create a comprehensive report that includes:
-1. Executive Summary
-2. Key Findings
-3. Detailed Analysis
-4. Sources and References
-5. Conclusions and Recommendations
-
-Format the report in a clear, professional manner with proper sections and bullet points where appropriate."""
-        
-        report_response = llm.invoke([SystemMessage(content=report_prompt)])
-        final_report = report_response.content
+        print("\n✅ Research completed successfully!")
         
         return {
             "messages": [AIMessage(content=f"Research completed successfully. Here's your detailed report:\n\n{final_report}")],
@@ -261,6 +266,7 @@ Format the report in a clear, professional manner with proper sections and bulle
         
     except Exception as e:
         error_message = f"An error occurred during research: {str(e)}"
+        print(f"\n❌ Error: {error_message}")
         return {
             "messages": [AIMessage(content=error_message)],
             "research_complete": False
@@ -363,6 +369,7 @@ if __name__ == "__main__":
         print("\n\nResearch agent terminated by user.")
     except Exception as e:
         print(f"\nError: {e}")
+
 
 
 
