@@ -1,0 +1,14 @@
+# Core LangGraph and LangChain dependencies
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+
+# Tavily search integration
+tavily-python>=0.3.0
+
+# Type checking and extensions
+typing-extensions>=4.8.0
+
+# Additional dependencies for robust functionality
+pydantic>=2.0.0
+httpx>=0.25.0
