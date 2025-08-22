@@ -1,0 +1,22 @@
+{
+  "dependencies": [
+    "langgraph",
+    "tavily-python",
+    "langchain",
+    "langchain-community",
+    "langchain-openai"
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": ".env",
+  "environment_variables": [
+    "TAVILY_API_KEY",
+    "OPENAI_API_KEY"
+  ],
+  "python_version": "3.11",
+  "dockerfile_lines": [
+    "RUN pip install --no-cache-dir langgraph tavily-python langchain langchain-community langchain-openai"
+  ]
+}
+
