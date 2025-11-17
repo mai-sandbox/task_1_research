@@ -1,0 +1,15 @@
+{
+  "dependencies": [
+    ".",
+    "langchain_openai",
+    "langchain_tavily",
+    "python-dotenv"
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": ".env",
+  "python_version": "3.11",
+  "pip_config_file": null,
+  "dockerfile_lines": []
+}
