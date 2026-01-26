@@ -1,0 +1,28 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": ".env",
+  "python_version": "3.11",
+  "dockerfile_lines": [
+    "RUN pip install --no-cache-dir langgraph tavily-python langchain-core langchain-openai"
+  ],
+  "environment": {
+    "TAVILY_API_KEY": null,
+    "OPENAI_API_KEY": null
+  },
+  "configuration_annotation": {
+    "TAVILY_API_KEY": {
+      "description": "API key for Tavily search service - required for web search functionality",
+      "required": true
+    },
+    "OPENAI_API_KEY": {
+      "description": "OpenAI API key for the language model - required for agent reasoning and text generation",
+      "required": true
+    }
+  }
+}
+
