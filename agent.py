@@ -1,0 +1,596 @@
+"""
+LangGraph Deep Research Agent with User Interaction and ReAct Search
+
+This agent implements a multi-stage research workflow:
+1. Clarify research scope through user interaction
+2. Decide when to proceed with research
+3. Conduct research using ReAct agent with Tavily search
+4. Generate comprehensive final report
+
+Required Environment Variables:
+- TAVILY_API_KEY: Get from https://app.tavily.com/
+- ANTHROPIC_API_KEY: Get from https://console.anthropic.com/
+
+Usage:
+    from agent import app
+    
+    initial_state = {
+        "messages": [HumanMessage("I want to research artificial intelligence")]
+    }
+    result = app.invoke(initial_state)
+"""
+
+import os
+from typing import List, Literal, TypedDict, Annotated
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_anthropic import ChatAnthropic
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import create_react_agent
+from tavily import TavilyClient
+
+
+# Custom State Schema
+class ResearchState(TypedDict):
+    """State schema for the research agent workflow"""
+    messages: Annotated[List[BaseMessage], add_messages]
+    research_brief: str
+    research_complete: bool
+    final_report: str
+
+
+# Environment variable handling with fallbacks
+def get_api_key(key_name: str, service_name: str) -> str:
+    """Get API key from environment with helpful error messages"""
+    api_key = os.getenv(key_name)
+    if not api_key:
+        raise ValueError(
+            f"Missing {key_name} environment variable. "
+            f"Please get your API key from {service_name} and set it as an environment variable."
+        )
+    return api_key
+
+
+# Initialize clients with error handling
+try:
+    TAVILY_API_KEY = get_api_key("TAVILY_API_KEY", "https://app.tavily.com/")
+    ANTHROPIC_API_KEY = get_api_key("ANTHROPIC_API_KEY", "https://console.anthropic.com/")
+    
+    tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+    llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", api_key=ANTHROPIC_API_KEY)
+except ValueError as e:
+    print(f"Configuration Error: {e}")
+    # Set to None to handle gracefully in nodes
+    tavily_client = None
+    llm = None
+
+
+# Tavily Search Tool
+def tavily_search_tool(query: str) -> str:
+    """
+    Search the web using Tavily API
+    
+    Args:
+        query: Search query string
+        
+    Returns:
+        Formatted search results as string
+    """
+    if not tavily_client:
+        return "Error: Tavily client not initialized. Please check TAVILY_API_KEY environment variable."
+    
+    try:
+        response = tavily_client.search(
+            query=query,
+            search_depth="advanced",
+            max_results=5,
+            include_answer=True,
+            include_raw_content=False
+        )
+        
+        # Format the results
+        formatted_results = f"Search Results for: {query}\n\n"
+        
+        if response.get("answer"):
+            formatted_results += f"Summary: {response['answer']}\n\n"
+        
+        formatted_results += "Sources:\n"
+        for i, result in enumerate(response.get("results", []), 1):
+            formatted_results += f"{i}. {result.get('title', 'No title')}\n"
+            formatted_results += f"   URL: {result.get('url', 'No URL')}\n"
+            formatted_results += f"   Content: {result.get('content', 'No content')[:200]}...\n\n"
+        
+        return formatted_results
+        
+    except Exception as e:
+        return f"Error searching with Tavily: {str(e)}"
+
+
+# Node 1: Clarify Scope
+def clarify_scope(state: ResearchState) -> ResearchState:
+    """
+    Engage with user to clarify research requirements through terminal-based conversation
+    """
+    if not llm:
+        return {
+            "messages": [AIMessage("Error: LLM not initialized. Please check ANTHROPIC_API_KEY environment variable.")],
+            "research_brief": "",
+            "research_complete": False,
+            "final_report": ""
+        }
+    
+    messages = state.get("messages", [])
+    current_brief = state.get("research_brief", "")
+    
+    # If we already have a complete research brief, no need to clarify further
+    if current_brief and "RESEARCH_BRIEF_COMPLETE" in str(messages[-1].content if messages else ""):
+        return {
+            "messages": [AIMessage("Research scope has been clarified. Ready to proceed with research.")],
+            "research_brief": current_brief,
+            "research_complete": False,
+            "final_report": ""
+        }
+    
+    # Analyze conversation to determine what information we still need
+    conversation_history = "\n".join([f"{msg.type}: {msg.content}" for msg in messages])
+    
+    # Create a comprehensive prompt for the LLM to act as a research clarification assistant
+    clarification_prompt = f"""You are a research assistant helping to clarify the scope of a research project through terminal-based conversation.
+
+Your goal is to gather comprehensive information about:
+1. The specific research topic and focus area
+2. The depth and scope of research needed (surface-level overview vs deep analysis)
+3. The target audience for the research (academic, business, general public, etc.)
+4. Any specific aspects, angles, or subtopics to explore
+5. Timeline considerations or urgency
+6. Preferred format or structure for the final report
+7. Any specific sources or types of information to prioritize
+
+Current conversation history:
+{conversation_history}
+
+Current research brief: {current_brief if current_brief else "None yet"}
+
+Instructions:
+- If this is the first interaction, introduce yourself and ask initial clarifying questions
+- If the user has provided some information, ask follow-up questions to fill gaps
+- Be conversational and helpful, not robotic
+- Ask 2-3 focused questions at a time, don't overwhelm the user
+- When you have gathered sufficient information to create a comprehensive research brief, create a detailed brief and end your response with "RESEARCH_BRIEF_COMPLETE"
+
+The research brief should include:
+- Research Topic: [Clear, specific topic]
+- Research Scope: [Detailed scope and boundaries]
+- Target Audience: [Who will read this research]
+- Research Depth: [Level of detail required]
+- Key Focus Areas: [Specific aspects to emphasize]
+- Timeline: [Any urgency or deadline considerations]
+- Output Format: [Preferred structure/format]
+
+Respond as the research assistant:"""
+
+    try:
+        # Get response from LLM
+        response = llm.invoke([HumanMessage(clarification_prompt)])
+        
+        # Check if the research brief is complete
+        if "RESEARCH_BRIEF_COMPLETE" in response.content:
+            # Extract the research brief from the response
+            response_parts = response.content.split("RESEARCH_BRIEF_COMPLETE")
+            brief_content = response_parts[0].strip()
+            
+            # Look for the research brief in the response
+            brief_start = brief_content.find("Research Topic:")
+            if brief_start != -1:
+                research_brief = brief_content[brief_start:].strip()
+            else:
+                # If no structured brief found, create one from the conversation
+                research_brief = f"""Research Topic: {messages[0].content if messages else 'Research request'}
+Research Scope: Comprehensive research based on user requirements
+Target Audience: General audience
+Research Depth: Detailed analysis
+Key Focus Areas: As discussed in conversation
+Timeline: Standard research timeline
+Output Format: Comprehensive report"""
+            
+            return {
+                "messages": [response],
+                "research_brief": research_brief,
+                "research_complete": False,
+                "final_report": ""
+            }
+        else:
+            # Continue the conversation
+            return {
+                "messages": [response],
+                "research_brief": current_brief,
+                "research_complete": False,
+                "final_report": ""
+            }
+            
+    except Exception as e:
+        return {
+            "messages": [AIMessage(f"Error in clarification process: {str(e)}. Please try again.")],
+            "research_brief": current_brief,
+            "research_complete": False,
+            "final_report": ""
+        }
+
+
+# Node 2: Should Proceed Decision
+def should_proceed_decision(state: ResearchState) -> Literal["clarify_scope", "react_research"]:
+    """
+    Analyze the current research_brief to determine if enough information has been gathered
+    to proceed with research. Returns 'clarify_scope' to continue gathering requirements 
+    or 'react_research' to begin the research phase.
+    """
+    research_brief = state.get("research_brief", "")
+    messages = state.get("messages", [])
+    last_message = messages[-1] if messages else None
+    
+    # First check: Do we have a research brief at all?
+    if not research_brief or len(research_brief.strip()) < 20:
+        return "clarify_scope"
+    
+    # Second check: Does the last message indicate completion?
+    completion_indicated = (last_message and 
+                          "RESEARCH_BRIEF_COMPLETE" in last_message.content)
+    
+    if completion_indicated:
+        return "react_research"
+    
+    # Third check: Analyze the content of the research brief for completeness
+    brief_lower = research_brief.lower()
+    
+    # Check for essential components
+    has_topic = any(keyword in brief_lower for keyword in [
+        "research topic:", "topic:", "subject:", "focus:"
+    ])
+    
+    has_scope = any(keyword in brief_lower for keyword in [
+        "scope:", "research scope:", "boundaries:", "coverage:", "extent:"
+    ])
+    
+    has_audience = any(keyword in brief_lower for keyword in [
+        "audience:", "target audience:", "readers:", "intended for:"
+    ])
+    
+    has_depth = any(keyword in brief_lower for keyword in [
+        "depth:", "research depth:", "level:", "detail:", "comprehensive:", "overview:"
+    ])
+    
+    # Count how many essential components we have
+    essential_components = sum([has_topic, has_scope, has_audience, has_depth])
+    
+    # Fourth check: Length and detail analysis
+    brief_length = len(research_brief.strip())
+    has_sufficient_detail = brief_length > 100  # At least 100 characters of detail
+    
+    # Decision logic: Proceed if we have sufficient components and detail
+    if essential_components >= 3 and has_sufficient_detail:
+        return "react_research"
+    elif essential_components >= 2 and has_sufficient_detail and brief_length > 200:
+        return "react_research"
+    else:
+        return "clarify_scope"
+
+
+# Node 2: Should Proceed
+def should_proceed(state: ResearchState) -> ResearchState:
+    """
+    Decision node that analyzes the research brief and determines next step in workflow
+    """
+    research_brief = state.get("research_brief", "")
+    messages = state.get("messages", [])
+    
+    # Analyze the research brief to determine if we have sufficient information
+    if research_brief and len(research_brief.strip()) > 50:  # Basic length check
+        # Check if the brief contains key components
+        brief_lower = research_brief.lower()
+        has_topic = any(keyword in brief_lower for keyword in ["research topic:", "topic:", "subject:"])
+        has_scope = any(keyword in brief_lower for keyword in ["scope:", "research scope:", "boundaries:"])
+        has_audience = any(keyword in brief_lower for keyword in ["audience:", "target audience:", "readers:"])
+        
+        # Check if the last message indicates completion
+        last_message = messages[-1] if messages else None
+        completion_indicated = (last_message and 
+                              "RESEARCH_BRIEF_COMPLETE" in last_message.content)
+        
+        # Determine if we have enough information to proceed
+        sufficient_info = (has_topic and (has_scope or has_audience)) or completion_indicated
+        
+        if sufficient_info:
+            return {
+                "messages": [AIMessage("Research brief is complete. Proceeding to research phase.")],
+                "research_brief": research_brief,
+                "research_complete": False,
+                "final_report": ""
+            }
+    
+    # If we don't have sufficient information, continue clarifying
+    return {
+        "messages": [AIMessage("Research brief needs more detail. Continuing clarification.")],
+        "research_brief": research_brief,
+        "research_complete": False,
+        "final_report": ""
+    }
+
+
+# Node 3: ReAct Research
+def react_research(state: ResearchState) -> ResearchState:
+    """
+    Conduct research using ReAct agent with Tavily search
+    """
+    if not llm or not tavily_client:
+        return {
+            "messages": [AIMessage("Error: LLM or Tavily client not initialized. Please check API keys.")],
+            "research_brief": state.get("research_brief", ""),
+            "research_complete": False,
+            "final_report": ""
+        }
+    
+    research_brief = state.get("research_brief", "")
+    messages = state.get("messages", [])
+    
+    if not research_brief:
+        return {
+            "messages": [AIMessage("Error: No research brief available to guide research.")],
+            "research_brief": research_brief,
+            "research_complete": False,
+            "final_report": ""
+        }
+    
+    try:
+        # Create a ReAct agent with the Tavily search tool
+        from langchain_core.tools import tool
+        
+        @tool
+        def search_web(query: str) -> str:
+            """Search the web for information using Tavily API"""
+            return tavily_search_tool(query)
+        
+        # Create the ReAct agent
+        react_agent = create_react_agent(
+            model=llm,
+            tools=[search_web],
+            prompt=f"""You are a research assistant conducting comprehensive research based on the following research brief:
+
+{research_brief}
+
+Your task is to:
+1. Analyze the research brief to identify key topics and questions to investigate
+2. Conduct multiple targeted searches to gather comprehensive information
+3. Analyze search results to identify gaps in knowledge
+4. Continue searching until you have gathered sufficient information to address all aspects of the research brief
+5. Synthesize your findings into a comprehensive research summary
+
+Guidelines:
+- Use multiple search queries to cover different aspects of the topic
+- Look for recent developments, key facts, expert opinions, and relevant statistics
+- Ensure you cover all areas mentioned in the research brief
+- Be thorough but focused on the research objectives
+- When you have gathered comprehensive information, provide a detailed summary of your findings
+
+Begin your research now."""
+        )
+        
+        # Prepare the input for the ReAct agent
+        research_input = {
+            "messages": [HumanMessage(f"Please conduct comprehensive research based on this brief: {research_brief}")]
+        }
+        
+        # Run the ReAct agent
+        research_result = react_agent.invoke(research_input)
+        
+        # Extract the research findings from the agent's response
+        research_messages = research_result.get("messages", [])
+        
+        # Get the final AI message which should contain the research summary
+        final_message = None
+        for msg in reversed(research_messages):
+            if hasattr(msg, 'type') and msg.type == 'ai':
+                final_message = msg
+                break
+        
+        if final_message:
+            research_summary = final_message.content
+        else:
+            research_summary = "Research completed but no summary available."
+        
+        # Combine all messages for context
+        all_research_messages = messages + [AIMessage(f"Research completed. Summary: {research_summary}")]
+        
+        return {
+            "messages": all_research_messages,
+            "research_brief": research_brief,
+            "research_complete": True,
+            "final_report": research_summary  # Store research findings for report generation
+        }
+        
+    except Exception as e:
+        return {
+            "messages": messages + [AIMessage(f"Error during research: {str(e)}")],
+            "research_brief": research_brief,
+            "research_complete": False,
+            "final_report": ""
+        }
+
+
+# Node 4: Generate Report
+def generate_report(state: ResearchState) -> ResearchState:
+    """
+    Generate comprehensive final report from research findings
+    """
+    if not llm:
+        return {
+            "messages": [AIMessage("Error: LLM not initialized. Please check ANTHROPIC_API_KEY.")],
+            "research_brief": state.get("research_brief", ""),
+            "research_complete": state.get("research_complete", False),
+            "final_report": ""
+        }
+    
+    research_brief = state.get("research_brief", "")
+    research_findings = state.get("final_report", "")  # Research findings from react_research node
+    messages = state.get("messages", [])
+    
+    if not research_brief:
+        return {
+            "messages": messages + [AIMessage("Error: No research brief available for report generation.")],
+            "research_brief": research_brief,
+            "research_complete": state.get("research_complete", False),
+            "final_report": ""
+        }
+    
+    if not research_findings:
+        return {
+            "messages": messages + [AIMessage("Error: No research findings available for report generation.")],
+            "research_brief": research_brief,
+            "research_complete": state.get("research_complete", False),
+            "final_report": ""
+        }
+    
+    try:
+        # Create a comprehensive report generation prompt
+        report_prompt = f"""You are a professional research report writer. Based on the research brief and findings provided, create a comprehensive, well-structured research report.
+
+RESEARCH BRIEF:
+{research_brief}
+
+RESEARCH FINDINGS:
+{research_findings}
+
+Please generate a detailed research report with the following structure:
+
+# [Report Title Based on Research Topic]
+
+## Executive Summary
+- Brief overview of the research topic and key findings
+- Main conclusions and insights
+
+## Introduction
+- Background and context
+- Research objectives and scope
+- Methodology overview
+
+## Key Findings
+- Organize findings into logical sections/themes
+- Present information clearly with supporting details
+- Include relevant statistics, facts, and expert opinions
+
+## Analysis and Insights
+- Synthesize the research findings
+- Identify patterns, trends, and relationships
+- Discuss implications and significance
+
+## Conclusions
+- Summarize main takeaways
+- Address research objectives
+- Highlight most important insights
+
+## Recommendations (if applicable)
+- Actionable recommendations based on findings
+- Future research directions
+- Practical applications
+
+## Sources and References
+- List key sources referenced in the research
+- Include URLs where available
+- Acknowledge search methodology
+
+Guidelines:
+- Use clear, professional language appropriate for the target audience
+- Ensure logical flow and coherent structure
+- Include specific details and examples from the research
+- Maintain objectivity while providing insightful analysis
+- Format using markdown for readability
+- Aim for comprehensive coverage while remaining focused
+
+Generate the complete research report now."""
+
+        # Generate the report using the LLM
+        report_message = HumanMessage(report_prompt)
+        response = llm.invoke([report_message])
+        
+        # Extract the generated report
+        if hasattr(response, 'content'):
+            final_report = response.content
+        else:
+            final_report = str(response)
+        
+        # Add completion message
+        completion_message = AIMessage(f"Research report generated successfully. The comprehensive report covers all aspects of the research brief and synthesizes the gathered information into a well-structured document.")
+        
+        return {
+            "messages": messages + [completion_message],
+            "research_brief": research_brief,
+            "research_complete": True,
+            "final_report": final_report
+        }
+        
+    except Exception as e:
+        return {
+            "messages": messages + [AIMessage(f"Error generating report: {str(e)}")],
+            "research_brief": research_brief,
+            "research_complete": state.get("research_complete", False),
+            "final_report": ""
+        }
+
+
+# Create the StateGraph
+def create_research_agent():
+    """Create and configure the research agent graph"""
+    
+    # Initialize the StateGraph with our custom state
+    workflow = StateGraph(ResearchState)
+    
+    # Add nodes
+    workflow.add_node("clarify_scope", clarify_scope)
+    workflow.add_node("should_proceed", should_proceed)
+    workflow.add_node("react_research", react_research)
+    workflow.add_node("generate_report", generate_report)
+    
+    # Add edges
+    workflow.add_edge(START, "clarify_scope")
+    workflow.add_edge("clarify_scope", "should_proceed")
+    workflow.add_conditional_edges(
+        "should_proceed",
+        should_proceed_decision,
+        {
+            "clarify_scope": "clarify_scope",
+            "react_research": "react_research"
+        }
+    )
+    workflow.add_edge("react_research", "generate_report")
+    workflow.add_edge("generate_report", END)
+    
+    return workflow.compile()
+
+
+# Export the compiled graph as 'app' (required pattern)
+app = create_research_agent()
+
+
+if __name__ == "__main__":
+    # Test the agent with a sample query
+    test_state = {
+        "messages": [HumanMessage("I want to research the latest developments in quantum computing")],
+        "research_brief": "",
+        "research_complete": False,
+        "final_report": ""
+    }
+    
+    print("Testing the research agent...")
+    try:
+        result = app.invoke(test_state)
+        print("Agent response:", result["messages"][-1].content)
+    except Exception as e:
+        print(f"Error testing agent: {e}")
+
+
+
+
+
+
+
+
+

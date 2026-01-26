@@ -1,0 +1,23 @@
+{
+  "dependencies": [
+    "langgraph",
+    "tavily-python",
+    "langchain-anthropic",
+    "langchain-core"
+  ],
+  "graphs": {
+    "agent": "./agent.py:app"
+  },
+  "env": {
+    "TAVILY_API_KEY": {
+      "description": "API key for Tavily search service. Get your key at https://app.tavily.com/",
+      "required": true
+    },
+    "ANTHROPIC_API_KEY": {
+      "description": "API key for Anthropic Claude LLM. Get your key at https://console.anthropic.com/",
+      "required": true
+    }
+  },
+  "dockerfile_lines": [],
+  "python_version": "3.11"
+}
